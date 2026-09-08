@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ciir.Application/Ciir.Application.csproj" />
+    <Project Path="src/Ciir.Cli/Ciir.Cli.csproj" />
+    <Project Path="src/Ciir.Core/Ciir.Core.csproj" />
+    <Project Path="src/Ciir.CSharp/Ciir.CSharp.csproj" />
+    <Project Path="src/Ciir.Serialization/Ciir.Serialization.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ciir.Application.Tests/Ciir.Application.Tests.csproj" />
+    <Project Path="tests/Ciir.Cli.Tests/Ciir.Cli.Tests.csproj" />
+    <Project Path="tests/Ciir.Core.Tests/Ciir.Core.Tests.csproj" />
+    <Project Path="tests/Ciir.CSharp.Tests/Ciir.CSharp.Tests.csproj" />
+    <Project Path="tests/Ciir.Serialization.Tests/Ciir.Serialization.Tests.csproj" />
+  </Folder>
+</Solution>

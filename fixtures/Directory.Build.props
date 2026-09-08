@@ -1,0 +1,10 @@
+<Project>
+
+  <!--
+    Fixtures are sample C# source analyzed BY the CIIR generator in tests; they are not part of
+    this repository's own production code, so they must not inherit its strict quality gates
+    (TreatWarningsAsErrors, StyleCop/Roslynator/Meziantou analyzers) from the root
+    Directory.Build.props. This file intentionally stops that inheritance.
+  -->
+
+</Project>
