@@ -22,8 +22,8 @@ internal static class MethodDocumentBuilder
         IMethodSymbol method,
         Compilation compilation,
         string projectName,
-        string projectDirectory,
-        string assemblyName,
+        string rootDirectory,
+        RelationResolutionContext context,
         AnalysisOptions options)
     {
         if (method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not BaseMethodDeclarationSyntax node)
@@ -49,10 +49,10 @@ internal static class MethodDocumentBuilder
                 CanonicalName = canonicalName,
                 Container = SymbolNaming.Container(method),
             },
-            Source = SourceLocationFactory.Create(node, projectDirectory, options.IncludeSource),
+            Source = SourceLocationFactory.Create(node, rootDirectory, options.IncludeSource),
             Documentation = XmlDocCommentExtractor.Extract(method),
             Comments = TriviaCommentExtractor.Extract(node),
-            Relations = body is null ? [] : MethodBodyRelationExtractor.Extract(body, semanticModel, assemblyName),
+            Relations = body is null ? [] : MethodBodyRelationExtractor.Extract(body, semanticModel, context),
             Conditions = body is null ? [] : ConditionExtractor.Extract(body, semanticModel),
             ControlFlow = body is null ? null : ControlFlowMetricsCalculator.Calculate(node, body, semanticModel),
             Method = new CiirMethodInfo

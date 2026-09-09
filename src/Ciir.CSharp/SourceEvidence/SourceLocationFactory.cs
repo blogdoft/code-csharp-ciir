@@ -6,12 +6,13 @@ namespace Ciir.CSharp.SourceEvidence;
 
 /// <summary>
 /// Builds <see cref="CiirSourceLocation"/> values from Roslyn syntax nodes. Paths are always
-/// relative to the analyzed project's own directory and normalized to forward slashes, so the
-/// same source produces identical output regardless of the host operating system.
+/// relative to the analysis root (the directory the caller originally resolved the input to, not
+/// necessarily the declaring file's own project directory) and normalized to forward slashes, so
+/// the same source produces identical output regardless of the host operating system.
 /// </summary>
 internal static class SourceLocationFactory
 {
-    public static CiirSourceLocation Create(SyntaxNode node, string projectDirectory, bool includeSource)
+    public static CiirSourceLocation Create(SyntaxNode node, string rootDirectory, bool includeSource)
     {
         ArgumentNullException.ThrowIfNull(node);
 
@@ -20,7 +21,7 @@ internal static class SourceLocationFactory
 
         return new CiirSourceLocation
         {
-            Path = ToRelativePath(projectDirectory, node.SyntaxTree.FilePath),
+            Path = ToRelativePath(rootDirectory, node.SyntaxTree.FilePath),
             StartLine = lineSpan.StartLinePosition.Line + 1,
             StartColumn = lineSpan.StartLinePosition.Character + 1,
             EndLine = lineSpan.EndLinePosition.Line + 1,
@@ -30,6 +31,6 @@ internal static class SourceLocationFactory
         };
     }
 
-    private static string ToRelativePath(string projectDirectory, string filePath) =>
-        Path.GetRelativePath(projectDirectory, filePath).Replace(Path.DirectorySeparatorChar, '/');
+    private static string ToRelativePath(string rootDirectory, string filePath) =>
+        Path.GetRelativePath(rootDirectory, filePath).Replace(Path.DirectorySeparatorChar, '/');
 }

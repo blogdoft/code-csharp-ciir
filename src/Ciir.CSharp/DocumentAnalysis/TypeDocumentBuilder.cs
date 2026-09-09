@@ -19,8 +19,8 @@ internal static class TypeDocumentBuilder
     public static CiirDocument Build(
         INamedTypeSymbol type,
         string projectName,
-        string projectDirectory,
-        string assemblyName,
+        string rootDirectory,
+        RelationResolutionContext context,
         AnalysisOptions options)
     {
         var qualifiedName = SymbolNaming.QualifiedName(type);
@@ -33,7 +33,7 @@ internal static class TypeDocumentBuilder
 
         var primaryNode = declaringNodes[0];
         var sourceLocations = declaringNodes
-            .Select(node => SourceLocationFactory.Create(node, projectDirectory, options.IncludeSource))
+            .Select(node => SourceLocationFactory.Create(node, rootDirectory, options.IncludeSource))
             .ToArray();
 
         var comments = declaringNodes.SelectMany(TriviaCommentExtractor.Extract).ToArray();
@@ -55,7 +55,7 @@ internal static class TypeDocumentBuilder
             AdditionalSourceLocations = sourceLocations.Length > 1 ? sourceLocations[1..] : [],
             Documentation = XmlDocCommentExtractor.Extract(type),
             Comments = comments,
-            Relations = InheritanceRelationExtractor.Extract(type, assemblyName),
+            Relations = InheritanceRelationExtractor.Extract(type, context),
             Type = new CiirTypeInfo
             {
                 TypeKind = TypeKindMapper.Map(type),

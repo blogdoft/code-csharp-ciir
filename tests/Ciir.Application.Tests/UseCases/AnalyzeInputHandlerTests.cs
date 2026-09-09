@@ -54,7 +54,7 @@ public class AnalyzeInputHandlerTests : IDisposable
         var result = await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
 
         result.ExitCode.ShouldBe(AnalysisExitCode.InvalidInput);
-        codeAnalyzer.DidNotReceiveWithAnyArgs().AnalyzeAsync(default!, default!, TestContext.Current.CancellationToken);
+        codeAnalyzer.DidNotReceiveWithAnyArgs().AnalyzeAsync(default!, default!, default!, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class AnalyzeInputHandlerTests : IDisposable
     {
         inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
         var documents = new[] { TypeDocument("Order"), TypeDocument("Payment") };
-        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable(documents));
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable(documents));
 
         var result = await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
 
@@ -78,7 +78,7 @@ public class AnalyzeInputHandlerTests : IDisposable
     public async Task ExecuteAsync_ContinuesAndSucceeds_WhenProjectFailsWithoutFailOnError()
     {
         inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
-        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>())
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>())
             .Returns(_ => throw new InvalidOperationException("boom"));
 
         var result = await handler.ExecuteAsync(Command(failOnError: false), TestContext.Current.CancellationToken);
@@ -91,7 +91,7 @@ public class AnalyzeInputHandlerTests : IDisposable
     public async Task ExecuteAsync_ReturnsFailure_WhenProjectFailsWithFailOnError()
     {
         inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
-        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>())
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>())
             .Returns(_ => throw new InvalidOperationException("boom"));
 
         var result = await handler.ExecuteAsync(Command(failOnError: true), TestContext.Current.CancellationToken);
@@ -103,13 +103,62 @@ public class AnalyzeInputHandlerTests : IDisposable
     public async Task ExecuteAsync_WritesReportManifestAndSchema_AfterAnalysis()
     {
         inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
-        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
 
         await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
 
         await artifactWriter.Received(1).WriteReportAsync(Arg.Any<AnalysisReport>(), outputPath, Arg.Any<CancellationToken>());
         await artifactWriter.Received(1).WriteSchemaAsync(outputPath, Arg.Any<CancellationToken>());
         await artifactWriter.Received(1).WriteManifestAsync(Arg.Any<AnalysisManifest>(), outputPath, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PassesProjectDirectoryAsRoot_WhenInputIsProject()
+    {
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
+
+        await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
+
+        var expectedRoot = Path.GetDirectoryName(projectPath)!;
+        codeAnalyzer.Received(1).AnalyzeAsync(projectPath, expectedRoot, Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PassesSolutionDirectoryAsRoot_WhenInputIsSolution()
+    {
+        var solutionPath = Path.Combine(Path.GetTempPath(), "Fake.sln");
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Solution, Path = solutionPath }));
+        solutionProjectLister.ListProjectPathsAsync(solutionPath, Arg.Any<CancellationToken>()).Returns([projectPath]);
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
+
+        await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
+
+        var expectedRoot = Path.GetDirectoryName(solutionPath)!;
+        codeAnalyzer.Received(1).AnalyzeAsync(projectPath, expectedRoot, Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PassesDirectoryItselfAsRoot_WhenInputIsDirectory()
+    {
+        var rootDirectory = Path.Combine(Path.GetTempPath(), "ciir-root-tests-" + Guid.NewGuid());
+        var discoveredProjectPath = Path.Combine(rootDirectory, "Fake.csproj");
+        Directory.CreateDirectory(rootDirectory);
+        File.WriteAllText(discoveredProjectPath, "<Project />");
+
+        try
+        {
+            inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Directory, Path = rootDirectory }));
+            codeAnalyzer.AnalyzeAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
+
+            await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
+
+            codeAnalyzer.Received(1).AnalyzeAsync(Arg.Any<string>(), rootDirectory, Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>());
+        }
+        finally
+        {
+            Directory.Delete(rootDirectory, recursive: true);
+        }
     }
 
     public void Dispose()

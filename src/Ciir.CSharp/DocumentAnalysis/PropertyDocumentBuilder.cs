@@ -21,8 +21,8 @@ internal static class PropertyDocumentBuilder
         IPropertySymbol property,
         Compilation compilation,
         string projectName,
-        string projectDirectory,
-        string assemblyName,
+        string rootDirectory,
+        RelationResolutionContext context,
         AnalysisOptions options)
     {
         if (property.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not PropertyDeclarationSyntax node)
@@ -47,10 +47,10 @@ internal static class PropertyDocumentBuilder
                 CanonicalName = qualifiedName,
                 Container = SymbolNaming.Container(property),
             },
-            Source = SourceLocationFactory.Create(node, projectDirectory, options.IncludeSource),
+            Source = SourceLocationFactory.Create(node, rootDirectory, options.IncludeSource),
             Documentation = XmlDocCommentExtractor.Extract(property),
             Comments = TriviaCommentExtractor.Extract(node),
-            Relations = body is null ? [] : MethodBodyRelationExtractor.Extract(body, semanticModel, assemblyName),
+            Relations = body is null ? [] : MethodBodyRelationExtractor.Extract(body, semanticModel, context),
             Conditions = body is null ? [] : ConditionExtractor.Extract(body, semanticModel),
             Property = new CiirPropertyInfo
             {

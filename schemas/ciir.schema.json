@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:ciir:schema:1.0",
+  "$id": "urn:ciir:schema:1.1",
   "title": "Code Intelligence Intermediate Representation (CIIR)",
   "description": "A language-independent intermediate representation describing statically observable software entities, their semantic properties, source evidence, relationships, documentation and selected control-flow characteristics. See docs/ciir-specification.md for the semantic meaning of each concept defined here.",
   "type": "object",
@@ -275,7 +275,7 @@
         },
         "origin": {
           "type": "string",
-          "enum": ["project", "dependency", "framework", "runtime", "external_service", "unknown"]
+          "enum": ["project", "solution", "dependency", "framework", "runtime", "external_service", "unknown"]
         },
         "reason": { "type": "string" }
       },

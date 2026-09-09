@@ -9,6 +9,9 @@ public enum CiirResolutionOrigin
     /// <summary>The target belongs to the analyzed project itself.</summary>
     Project,
 
+    /// <summary>The target belongs to a different project analyzed in this same run (a same-solution project reference).</summary>
+    Solution,
+
     /// <summary>The target belongs to a project/package dependency.</summary>
     Dependency,
 

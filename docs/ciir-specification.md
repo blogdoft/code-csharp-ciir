@@ -47,8 +47,8 @@ includes parameter types for methods/constructors.
 
 ## `source` and `additionalSourceLocations`
 
-`source` is the entity's primary declaration location, with a path **relative to the analyzed
-project's own directory** (never an absolute machine path), 1-based line/column numbers, and a
+`source` is the entity's primary declaration location, with a path **relative to the analysis
+root** (never an absolute machine path), 1-based line/column numbers, and a
 SHA-256 hash of the exact source span. `additionalSourceLocations` holds any further physical
 declarations for the same semantic entity — this is how C# `partial` types and methods are
 represented: **one** CIIR document per semantic entity, with multiple source locations, never
@@ -96,15 +96,31 @@ instead recoverable from the type graph via their own `implements` relations.
 
 ### `resolution`
 
-- `status`: `resolved` (found in the analyzed project), `external` (found, but outside the
-  project — framework or a dependency), `unresolved` (no matching symbol at all), `ambiguous`
-  (more than one candidate and none could be selected statically), `dynamic` (the call is
-  dynamically dispatched, e.g. through the `dynamic` keyword).
-- `origin`: `project`, `framework` (BCL), `dependency` (a referenced package/project assembly
-  that is not the BCL), `runtime`, `external_service`, `unknown`.
+- `status`: `resolved` (found in the analyzed project or in another project analyzed in this same
+  run), `external` (found, but outside this analysis run — framework or a package/non-project
+  dependency), `unresolved` (no matching symbol at all), `ambiguous` (more than one candidate and
+  none could be selected statically), `dynamic` (the call is dynamically dispatched, e.g. through
+  the `dynamic` keyword).
+- `origin`: `project` (the analyzed project itself), `solution` (a different project that is part
+  of this same analysis run — reachable, directly or transitively, via the analyzed project's own
+  Roslyn `ProjectReference`s), `framework` (BCL), `dependency` (a package or non-project-reference
+  assembly that is not the BCL), `runtime`, `external_service`, `unknown`.
 
 External symbols (framework/dependency calls) never require a full CIIR document to be generated
-for the target — only the relation with `resolution.status: "external"` is produced.
+for the target — only the relation with `resolution.status: "external"` is produced. A relation
+whose target belongs to a different project analyzed in this same run is `resolved`/`solution`,
+and `target.id` is populated with that target's CIIR document id — computed from the target
+symbol alone, without requiring that other project's own document-emission pass to have already
+run — so long as the target's kind is one this pipeline emits its own document for.
+
+### `target.id`
+
+`target.id` is populated whenever `resolution.status` is `resolved` (`origin: project` or
+`origin: solution`) **and** the target symbol's kind is one this generator emits its own CIIR
+document for (`type`, `method`, `constructor`, `property`, `field`, `event` — subject to the same
+syntactic gating each of those document kinds requires, e.g. a record's positional property has no
+`property` document and so its relation targets never get an `id` even when `resolved`). It is
+always `null` for `external`/`unresolved`/`ambiguous`/`dynamic` relations.
 
 ## Conditions
 
@@ -190,5 +206,7 @@ including wall-clock time or other non-reproducible data inside a `CiirDocument`
   properties (`Type Name => expr;`); block-bodied `get`/`set` accessors are not walked.
 - Field/property initializer expressions are not analyzed for relations.
 - Static constructors are not represented as `constructor` documents.
-- No interprocedural or cross-project data-flow analysis is performed — every relation is
-  statically observable within the analyzed project's own compilation.
+- No cross-project *data-flow* analysis is performed (a relation never claims to know a runtime
+  value or its provenance) — but cross-project relations to types/methods/properties/fields/events
+  in another project loaded as part of this same analysis run *are* represented, as
+  `resolved`/`solution`, distinct from calls into external packages/frameworks (`external`).

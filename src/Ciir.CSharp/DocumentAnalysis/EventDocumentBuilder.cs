@@ -15,7 +15,7 @@ namespace Ciir.CSharp.DocumentAnalysis;
 /// <summary>Builds the <see cref="CiirDocument"/> for an event declaration.</summary>
 internal static class EventDocumentBuilder
 {
-    public static CiirDocument? Build(IEventSymbol eventSymbol, string projectName, string projectDirectory, AnalysisOptions options)
+    public static CiirDocument? Build(IEventSymbol eventSymbol, string projectName, string rootDirectory, AnalysisOptions options)
     {
         if (eventSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not SyntaxNode declarationNode)
         {
@@ -43,7 +43,7 @@ internal static class EventDocumentBuilder
                 CanonicalName = qualifiedName,
                 Container = SymbolNaming.Container(eventSymbol),
             },
-            Source = SourceLocationFactory.Create(declarationNode, projectDirectory, options.IncludeSource),
+            Source = SourceLocationFactory.Create(declarationNode, rootDirectory, options.IncludeSource),
             Documentation = XmlDocCommentExtractor.Extract(eventSymbol),
             Comments = TriviaCommentExtractor.Extract(declarationNode),
             Event = new CiirEventInfo

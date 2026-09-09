@@ -4,8 +4,12 @@ namespace Ciir.Core.Relations;
 public sealed record CiirRelationTarget
 {
     /// <summary>
-    /// The target's CIIR document id, when the target is itself represented as a CIIR document
-    /// in this analysis. <see langword="null"/> for external symbols (see <see cref="CiirRelationResolution"/>).
+    /// The target's CIIR document id, populated whenever <see cref="CiirRelationResolution.Status"/>
+    /// is <see cref="CiirResolutionStatus.Resolved"/> (whether <see cref="CiirRelationResolution.Origin"/>
+    /// is <see cref="CiirResolutionOrigin.Project"/> or <see cref="CiirResolutionOrigin.Solution"/>) and
+    /// the target symbol's kind is one this pipeline emits its own document for.
+    /// <see langword="null"/> for external symbols, and for resolved symbols of a kind that never
+    /// gets its own CIIR document (e.g. a record's positional property, an indexer, or a local variable).
     /// </summary>
     public string? Id { get; init; }
 

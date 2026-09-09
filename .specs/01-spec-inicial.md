@@ -1167,6 +1167,7 @@ Origins:
 
 ```text
 project
+solution
 dependency
 framework
 runtime
@@ -1174,11 +1175,19 @@ external_service
 unknown
 ```
 
+`solution` é usado quando o alvo pertence a um projeto **diferente** do projeto atualmente
+analisado, mas que faz parte desta mesma execução de análise (ex.: projeto A tem
+`ProjectReference` para o projeto B, e ambos são analisados na mesma execução). Nesse caso,
+`status` é `resolved` (não `external`), e `relationTarget.id` deve ser preenchido com o id do
+documento CIIR do alvo, exatamente como para um alvo do próprio projeto.
+
 ---
 
 # 33. External symbols
 
-Chamadas a frameworks ou dependências externas não exigem que uma entidade CIIR completa seja gerada.
+Chamadas a frameworks ou dependências externas ao **run** de análise (pacotes NuGet, BCL, ou
+qualquer assembly que não corresponda a um projeto também carregado nesta mesma execução) não
+exigem que uma entidade CIIR completa seja gerada para o alvo.
 
 Exemplo:
 
@@ -1194,6 +1203,9 @@ Exemplo:
   }
 }
 ```
+
+Um alvo em outro projeto que também faz parte desta mesma execução (ver seção 32, origin
+`solution`) NÃO é considerado externo: `status` é `resolved`, e `relationTarget.id` é preenchido.
 
 ---
 

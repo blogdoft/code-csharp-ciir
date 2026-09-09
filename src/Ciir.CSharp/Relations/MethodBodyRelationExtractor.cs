@@ -13,14 +13,14 @@ namespace Ciir.CSharp.Relations;
 /// </summary>
 internal static class MethodBodyRelationExtractor
 {
-    public static IReadOnlyList<CiirRelation> Extract(SyntaxNode body, SemanticModel semanticModel, string currentAssemblyName)
+    public static IReadOnlyList<CiirRelation> Extract(SyntaxNode body, SemanticModel semanticModel, RelationResolutionContext context)
     {
-        var walker = new Walker(semanticModel, currentAssemblyName);
+        var walker = new Walker(semanticModel, context);
         walker.Visit(body);
         return walker.Relations;
     }
 
-    private sealed class Walker(SemanticModel semanticModel, string currentAssemblyName) : CSharpSyntaxWalker
+    private sealed class Walker(SemanticModel semanticModel, RelationResolutionContext context) : CSharpSyntaxWalker
     {
         public List<CiirRelation> Relations { get; } = [];
 
@@ -136,13 +136,16 @@ internal static class MethodBodyRelationExtractor
                 return;
             }
 
-            var origin = RelationResolutionClassifier.ClassifyOrigin(symbol, currentAssemblyName);
-            var status = origin == CiirResolutionOrigin.Project ? CiirResolutionStatus.Resolved : CiirResolutionStatus.External;
+            var origin = RelationResolutionClassifier.ClassifyOrigin(symbol, context);
+            var status = origin is CiirResolutionOrigin.Project or CiirResolutionOrigin.Solution
+                ? CiirResolutionStatus.Resolved
+                : CiirResolutionStatus.External;
+            var id = RelationTargetIdResolver.ResolveId(symbol, status, origin, context);
 
             Relations.Add(new CiirRelation
             {
                 Kind = CiirRelationKind.Catches,
-                Target = new CiirRelationTarget { Symbol = SymbolNaming.QualifiedName(symbol) },
+                Target = new CiirRelationTarget { Symbol = SymbolNaming.QualifiedName(symbol), Id = id },
                 Resolution = new CiirRelationResolution { Status = status, Origin = origin },
             });
         }
@@ -166,15 +169,16 @@ internal static class MethodBodyRelationExtractor
                 return;
             }
 
-            var origin = RelationResolutionClassifier.ClassifyOrigin(constructedType, currentAssemblyName);
+            var origin = RelationResolutionClassifier.ClassifyOrigin(constructedType, context);
             var status = symbolInfo.Symbol is not null
-                ? (origin == CiirResolutionOrigin.Project ? CiirResolutionStatus.Resolved : CiirResolutionStatus.External)
+                ? (origin is CiirResolutionOrigin.Project or CiirResolutionOrigin.Solution ? CiirResolutionStatus.Resolved : CiirResolutionStatus.External)
                 : CiirResolutionStatus.Unresolved;
+            var id = RelationTargetIdResolver.ResolveId(constructedType, status, origin, context);
 
             Relations.Add(new CiirRelation
             {
                 Kind = CiirRelationKind.Constructs,
-                Target = new CiirRelationTarget { Symbol = SymbolNaming.QualifiedName(constructedType) },
+                Target = new CiirRelationTarget { Symbol = SymbolNaming.QualifiedName(constructedType), Id = id },
                 Resolution = new CiirRelationResolution { Status = status, Origin = origin },
             });
         }
@@ -187,13 +191,16 @@ internal static class MethodBodyRelationExtractor
                 return;
             }
 
-            var origin = RelationResolutionClassifier.ClassifyOrigin(type, currentAssemblyName);
-            var status = origin == CiirResolutionOrigin.Project ? CiirResolutionStatus.Resolved : CiirResolutionStatus.External;
+            var origin = RelationResolutionClassifier.ClassifyOrigin(type, context);
+            var status = origin is CiirResolutionOrigin.Project or CiirResolutionOrigin.Solution
+                ? CiirResolutionStatus.Resolved
+                : CiirResolutionStatus.External;
+            var id = RelationTargetIdResolver.ResolveId(type, status, origin, context);
 
             Relations.Add(new CiirRelation
             {
                 Kind = CiirRelationKind.Throws,
-                Target = new CiirRelationTarget { Symbol = SymbolNaming.QualifiedName(type) },
+                Target = new CiirRelationTarget { Symbol = SymbolNaming.QualifiedName(type), Id = id },
                 Resolution = new CiirRelationResolution { Status = status, Origin = origin },
             });
         }
@@ -211,14 +218,15 @@ internal static class MethodBodyRelationExtractor
 
         private void AddRelation(CiirRelationKind kind, SymbolInfo symbolInfo, Func<ISymbol, string> displayText, SyntaxNode node)
         {
-            var resolution = RelationResolutionClassifier.Classify(symbolInfo, currentAssemblyName);
+            var resolution = RelationResolutionClassifier.Classify(symbolInfo, context);
             var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
             var symbolText = symbol is not null ? displayText(symbol) : node.ToString();
+            var id = RelationTargetIdResolver.ResolveId(symbol, resolution.Status, resolution.Origin, context);
 
             Relations.Add(new CiirRelation
             {
                 Kind = kind,
-                Target = new CiirRelationTarget { Symbol = symbolText },
+                Target = new CiirRelationTarget { Symbol = symbolText, Id = id },
                 Resolution = resolution,
             });
         }

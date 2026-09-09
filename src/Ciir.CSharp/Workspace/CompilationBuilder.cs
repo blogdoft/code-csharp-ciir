@@ -25,11 +25,24 @@ namespace Ciir.CSharp.Workspace;
 /// </remarks>
 internal static class CompilationBuilder
 {
-    public static Task<Compilation> BuildAsync(Project project, CancellationToken cancellationToken)
+    public static async Task<CompilationBuildResult> BuildAsync(Project project, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);
 
-        return BuildAsync(project, new Dictionary<ProjectId, Task<Compilation>>(), cancellationToken);
+        var cache = new Dictionary<ProjectId, Task<Compilation>>();
+        var compilation = await BuildAsync(project, cache, cancellationToken).ConfigureAwait(false);
+
+        var assemblyNameToProjectName = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var solutionProject in project.Solution.Projects)
+        {
+            var solutionCompilation = await BuildAsync(solutionProject, cache, cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(solutionCompilation.AssemblyName))
+            {
+                assemblyNameToProjectName[solutionCompilation.AssemblyName] = solutionProject.Name;
+            }
+        }
+
+        return new CompilationBuildResult(compilation, assemblyNameToProjectName);
     }
 
     private static Task<Compilation> BuildAsync(Project project, Dictionary<ProjectId, Task<Compilation>> cache, CancellationToken cancellationToken)

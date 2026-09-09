@@ -19,7 +19,12 @@ public interface ICodeAnalyzer
     /// as soon as it is produced rather than buffering the full result in memory.
     /// </summary>
     /// <param name="projectPath">The full path to the project file to analyze.</param>
+    /// <param name="rootDirectory">
+    /// The directory every emitted <c>source.path</c> is computed relative to — the analysis
+    /// root the caller originally resolved the input to, not necessarily this project's own
+    /// directory (e.g. when analyzing a directory or solution containing several projects).
+    /// </param>
     /// <param name="options">Analysis options (e.g. whether to include source text).</param>
     /// <param name="cancellationToken">A token to observe for cancellation.</param>
-    IAsyncEnumerable<CiirDocument> AnalyzeAsync(string projectPath, AnalysisOptions options, CancellationToken cancellationToken);
+    IAsyncEnumerable<CiirDocument> AnalyzeAsync(string projectPath, string rootDirectory, AnalysisOptions options, CancellationToken cancellationToken);
 }

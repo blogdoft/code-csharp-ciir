@@ -15,7 +15,7 @@ namespace Ciir.CSharp.DocumentAnalysis;
 /// <summary>Builds the <see cref="CiirDocument"/> for a field (or enum member) declaration.</summary>
 internal static class FieldDocumentBuilder
 {
-    public static CiirDocument? Build(IFieldSymbol field, string projectName, string projectDirectory, AnalysisOptions options)
+    public static CiirDocument? Build(IFieldSymbol field, string projectName, string rootDirectory, AnalysisOptions options)
     {
         if (field.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not SyntaxNode declaratorNode)
         {
@@ -38,7 +38,7 @@ internal static class FieldDocumentBuilder
                 CanonicalName = qualifiedName,
                 Container = SymbolNaming.Container(field),
             },
-            Source = SourceLocationFactory.Create(declaratorNode, projectDirectory, options.IncludeSource),
+            Source = SourceLocationFactory.Create(declaratorNode, rootDirectory, options.IncludeSource),
             Documentation = XmlDocCommentExtractor.Extract(field),
             Comments = TriviaCommentExtractor.Extract(declaratorNode),
             Field = new CiirFieldInfo

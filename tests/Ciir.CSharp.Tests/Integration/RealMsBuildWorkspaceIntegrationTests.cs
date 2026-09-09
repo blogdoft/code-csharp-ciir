@@ -24,16 +24,20 @@ public class RealMsBuildWorkspaceIntegrationTests
         await RestoreAsync(projectPath, TestContext.Current.CancellationToken);
 
         var analyzer = new CSharpCodeAnalyzer();
+        var rootDirectory = Path.GetDirectoryName(projectPath)!;
         var options = new AnalysisOptions { OutputPath = Path.GetTempPath() };
 
         var documents = new List<CiirDocument>();
-        await foreach (var document in analyzer.AnalyzeAsync(projectPath, options, TestContext.Current.CancellationToken))
+        await foreach (var document in analyzer.AnalyzeAsync(projectPath, rootDirectory, options, TestContext.Current.CancellationToken))
         {
             documents.Add(document);
         }
 
         documents.ShouldNotBeEmpty();
         documents.ShouldContain(d => d.Kind == CiirKind.Type && string.Equals(d.Symbol.QualifiedName, "Payments.Domain.Order", StringComparison.Ordinal));
+
+        var order = documents.Single(d => d.Kind == CiirKind.Type && string.Equals(d.Symbol.QualifiedName, "Payments.Domain.Order", StringComparison.Ordinal));
+        order.Source.ShouldNotBeNull().Path.ShouldBe("Order.cs");
 
         var authorizeMethod = documents.Single(d =>
             d.Kind == CiirKind.Method &&

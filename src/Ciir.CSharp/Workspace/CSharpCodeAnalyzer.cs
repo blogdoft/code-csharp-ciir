@@ -2,6 +2,7 @@ using Ciir.Application.Model;
 using Ciir.Application.Ports;
 using Ciir.Core;
 using Ciir.CSharp.Bootstrap;
+using Ciir.CSharp.Relations;
 using Microsoft.CodeAnalysis.MSBuild;
 using System.Runtime.CompilerServices;
 
@@ -17,21 +18,28 @@ public sealed class CSharpCodeAnalyzer : ICodeAnalyzer
     /// <inheritdoc />
     public async IAsyncEnumerable<CiirDocument> AnalyzeAsync(
         string projectPath,
+        string rootDirectory,
         AnalysisOptions options,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(projectPath);
+        ArgumentNullException.ThrowIfNull(rootDirectory);
         ArgumentNullException.ThrowIfNull(options);
 
         MsBuildEnvironment.EnsureRegistered();
 
         using var workspace = MSBuildWorkspace.Create();
         var project = await workspace.OpenProjectAsync(projectPath, cancellationToken: cancellationToken);
-        var compilation = await CompilationBuilder.BuildAsync(project, cancellationToken);
+        var buildResult = await CompilationBuilder.BuildAsync(project, cancellationToken);
 
-        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectPath))!;
+        var context = new RelationResolutionContext
+        {
+            CurrentAssemblyName = buildResult.Compilation.AssemblyName ?? project.Name,
+            CurrentProjectName = project.Name,
+            AssemblyNameToProjectName = buildResult.AssemblyNameToProjectName,
+        };
 
-        foreach (var document in CompilationAnalyzer.Analyze(compilation, project.Name, projectDirectory, options, cancellationToken))
+        foreach (var document in CompilationAnalyzer.Analyze(buildResult.Compilation, project.Name, rootDirectory, context, options, cancellationToken))
         {
             yield return document;
         }

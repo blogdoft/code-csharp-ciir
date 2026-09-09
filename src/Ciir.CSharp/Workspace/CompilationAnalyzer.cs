@@ -2,6 +2,7 @@ using Ciir.Application.Model;
 using Ciir.Core;
 using Ciir.CSharp.Discovery;
 using Ciir.CSharp.DocumentAnalysis;
+using Ciir.CSharp.Relations;
 using Ciir.CSharp.SymbolMapping;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -19,12 +20,11 @@ internal static class CompilationAnalyzer
     public static IEnumerable<CiirDocument> Analyze(
         Compilation compilation,
         string projectName,
-        string projectDirectory,
+        string rootDirectory,
+        RelationResolutionContext context,
         AnalysisOptions options,
         CancellationToken cancellationToken)
     {
-        var assemblyName = compilation.AssemblyName ?? projectName;
-
         yield return ProjectAndNamespaceDocumentBuilder.BuildProject(projectName);
 
         var emittedNamespaces = new HashSet<string>(StringComparer.Ordinal);
@@ -40,11 +40,11 @@ internal static class CompilationAnalyzer
                 }
             }
 
-            yield return TypeDocumentBuilder.Build(type, projectName, projectDirectory, assemblyName, options);
+            yield return TypeDocumentBuilder.Build(type, projectName, rootDirectory, context, options);
 
             foreach (var member in OrderMembers(type))
             {
-                var document = BuildMemberDocument(member, compilation, projectName, projectDirectory, assemblyName, options);
+                var document = BuildMemberDocument(member, compilation, projectName, rootDirectory, context, options);
                 if (document is not null)
                 {
                     yield return document;
@@ -57,14 +57,14 @@ internal static class CompilationAnalyzer
         ISymbol member,
         Compilation compilation,
         string projectName,
-        string projectDirectory,
-        string assemblyName,
+        string rootDirectory,
+        RelationResolutionContext context,
         AnalysisOptions options) => member switch
         {
-            IMethodSymbol method => MethodDocumentBuilder.Build(method, compilation, projectName, projectDirectory, assemblyName, options),
-            IPropertySymbol property => PropertyDocumentBuilder.Build(property, compilation, projectName, projectDirectory, assemblyName, options),
-            IFieldSymbol field => FieldDocumentBuilder.Build(field, projectName, projectDirectory, options),
-            IEventSymbol eventSymbol => EventDocumentBuilder.Build(eventSymbol, projectName, projectDirectory, options),
+            IMethodSymbol method => MethodDocumentBuilder.Build(method, compilation, projectName, rootDirectory, context, options),
+            IPropertySymbol property => PropertyDocumentBuilder.Build(property, compilation, projectName, rootDirectory, context, options),
+            IFieldSymbol field => FieldDocumentBuilder.Build(field, projectName, rootDirectory, options),
+            IEventSymbol eventSymbol => EventDocumentBuilder.Build(eventSymbol, projectName, rootDirectory, options),
             _ => null,
         };
 

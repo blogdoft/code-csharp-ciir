@@ -6,12 +6,14 @@ namespace Ciir.CSharp.Relations;
 /// <summary>Classifies how a statically resolved (or unresolved) symbol reference maps to <see cref="CiirRelationResolution"/>.</summary>
 internal static class RelationResolutionClassifier
 {
-    public static CiirRelationResolution Classify(SymbolInfo symbolInfo, string currentAssemblyName)
+    public static CiirRelationResolution Classify(SymbolInfo symbolInfo, RelationResolutionContext context)
     {
         if (symbolInfo.Symbol is { } symbol)
         {
-            var origin = ClassifyOrigin(symbol, currentAssemblyName);
-            var status = origin == CiirResolutionOrigin.Project ? CiirResolutionStatus.Resolved : CiirResolutionStatus.External;
+            var origin = ClassifyOrigin(symbol, context);
+            var status = origin is CiirResolutionOrigin.Project or CiirResolutionOrigin.Solution
+                ? CiirResolutionStatus.Resolved
+                : CiirResolutionStatus.External;
             return new CiirRelationResolution { Status = status, Origin = origin };
         }
 
@@ -43,7 +45,7 @@ internal static class RelationResolutionClassifier
         };
     }
 
-    public static CiirResolutionOrigin ClassifyOrigin(ISymbol symbol, string currentAssemblyName)
+    public static CiirResolutionOrigin ClassifyOrigin(ISymbol symbol, RelationResolutionContext context)
     {
         var containingAssembly = symbol.ContainingAssembly?.Name;
 
@@ -52,9 +54,14 @@ internal static class RelationResolutionClassifier
             return CiirResolutionOrigin.Unknown;
         }
 
-        if (string.Equals(containingAssembly, currentAssemblyName, StringComparison.Ordinal))
+        if (string.Equals(containingAssembly, context.CurrentAssemblyName, StringComparison.Ordinal))
         {
             return CiirResolutionOrigin.Project;
+        }
+
+        if (context.TryGetProjectName(containingAssembly, out _))
+        {
+            return CiirResolutionOrigin.Solution;
         }
 
         return IsFrameworkAssembly(containingAssembly) ? CiirResolutionOrigin.Framework : CiirResolutionOrigin.Dependency;

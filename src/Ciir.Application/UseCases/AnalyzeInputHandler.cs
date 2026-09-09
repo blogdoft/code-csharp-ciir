@@ -32,6 +32,10 @@ public sealed class AnalyzeInputHandler(
             return new AnalysisResult { ExitCode = AnalysisExitCode.InvalidInput, ErrorMessage = inputResult.Failure.Message };
         }
 
+        var rootDirectory = inputResult.Value.Type == AnalysisInputType.Directory
+            ? inputResult.Value.Path
+            : Path.GetDirectoryName(inputResult.Value.Path)!;
+
         IReadOnlyList<string> projectPaths;
         try
         {
@@ -57,7 +61,7 @@ public sealed class AnalyzeInputHandler(
             return new AnalysisResult { ExitCode = AnalysisExitCode.OutputWriteFailure, ErrorMessage = ex.Message };
         }
 
-        var hasFatalProjectFailure = await AnalyzeProjectsAsync(projectPaths, command.Options, cancellationToken);
+        var hasFatalProjectFailure = await AnalyzeProjectsAsync(projectPaths, rootDirectory, command.Options, cancellationToken);
         var report = reporter.BuildReport();
 
         try
@@ -112,7 +116,7 @@ public sealed class AnalyzeInputHandler(
 
     private static string HashFile(string path) => Sha256Text.ComputePrefixedHash(File.ReadAllBytes(path));
 
-    private async Task<bool> AnalyzeProjectsAsync(IReadOnlyList<string> projectPaths, AnalysisOptions options, CancellationToken cancellationToken)
+    private async Task<bool> AnalyzeProjectsAsync(IReadOnlyList<string> projectPaths, string rootDirectory, AnalysisOptions options, CancellationToken cancellationToken)
     {
         var hasFatalProjectFailure = false;
 
@@ -126,7 +130,7 @@ public sealed class AnalyzeInputHandler(
             try
             {
                 var documentCount = 0;
-                await foreach (var document in codeAnalyzer.AnalyzeAsync(projectPath, options, cancellationToken))
+                await foreach (var document in codeAnalyzer.AnalyzeAsync(projectPath, rootDirectory, options, cancellationToken))
                 {
                     reporter.RecordDocument(document);
                     await writer.WriteAsync(document, cancellationToken);

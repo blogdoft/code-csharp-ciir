@@ -2,6 +2,7 @@ using Ciir.Application.Model;
 using Ciir.Core;
 using Ciir.Core.Conditions;
 using Ciir.Core.Relations;
+using Ciir.CSharp.Relations;
 using Ciir.CSharp.Workspace;
 using Ciir.Serialization.Json;
 using Json.Schema;
@@ -67,8 +68,14 @@ public class BasicSolutionIntegrationTests
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
 
         var options = new AnalysisOptions { OutputPath = Path.GetTempPath() };
+        var context = new RelationResolutionContext
+        {
+            CurrentAssemblyName = "BasicSolution",
+            CurrentProjectName = "BasicSolution",
+            AssemblyNameToProjectName = new Dictionary<string, string> { ["BasicSolution"] = "BasicSolution" },
+        };
 
-        return [.. CompilationAnalyzer.Analyze(compilation, "BasicSolution", fixtureDirectory, options, TestContext.Current.CancellationToken)];
+        return [.. CompilationAnalyzer.Analyze(compilation, "BasicSolution", fixtureDirectory, context, options, TestContext.Current.CancellationToken)];
     }
 
     private static void AssertAllDocumentsAreSchemaValid(IEnumerable<CiirDocument> documents)
@@ -131,6 +138,16 @@ public class BasicSolutionIntegrationTests
 
         authorizeMethod.Conditions.ShouldContain(c =>
             c.Kind == CiirConditionKind.Guard && string.Equals(c.Expression, "order.Total <= 0", StringComparison.Ordinal));
+
+        var orderTotalProperty = documents.Single(d =>
+            d.Kind == CiirKind.Property && string.Equals(d.Symbol.QualifiedName, "Payments.Domain.Order.Total", StringComparison.Ordinal));
+
+        authorizeMethod.Relations.ShouldContain(r =>
+            r.Kind == CiirRelationKind.Reads &&
+            string.Equals(r.Target.Symbol, "Payments.Domain.Order.Total", StringComparison.Ordinal) &&
+            r.Resolution.Status == CiirResolutionStatus.Resolved &&
+            r.Resolution.Origin == CiirResolutionOrigin.Project &&
+            r.Target.Id == orderTotalProperty.Id);
     }
 
     private static SyntaxTree ImplicitUsingsSyntaxTree() => CSharpSyntaxTree.ParseText(
