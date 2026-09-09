@@ -2,12 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status
-
-This repository is currently empty (greenfield). This file documents the intended purpose and
-architecture as agreed with the project owner, so that the first code written here follows the
-intended shape from the start rather than being retrofitted later.
-
 ## Purpose
 
 Build a .NET application that statically analyzes C# source code and produces a standardized
@@ -23,25 +17,38 @@ design details before starting new work, and add new specs there rather than els
 
 ## Architecture: Hexagonal (Ports & Adapters)
 
-The application core owns the domain logic of analyzing C# source and producing CIIR. It must have
-no dependency on any specific delivery mechanism (CLI, HTTP, etc.) or specific I/O technology —
-those live in adapters around the core, connected through ports (interfaces) defined by the core.
+The application core owns the domain logic of analyzing C# source and producing CIIR. It has no
+dependency on any specific delivery mechanism (CLI, HTTP, etc.) or specific I/O technology — those
+live in adapters around the core, connected through ports (interfaces) defined by the core.
+Dependency direction is enforced both by convention and by an architecture-boundary test in
+`Ciir.Application.Tests` that fails the build if `Ciir.Core`/`Ciir.Application` ever reference
+Roslyn.
 
-- **Domain/Application core**: the C# static analysis pipeline and the CIIR model/generation logic.
-  This is where "analyze source → produce CIIR" lives, independent of how it's invoked or how
-  results are delivered.
-- **Driving ports/adapters** (things that trigger CIIR generation):
-  - **CLI** — the first adapter being built. Users invoke CIIR generation from the command line.
-  - **Web API (HTTP)** — planned as a second driving adapter, exposing the same core use case
-    (analyze source → produce CIIR) over HTTP. When adding it, reuse the core's application
-    services/use cases rather than duplicating analysis logic in the API layer.
+| Project | Role |
+|---|---|
+| `src/Ciir.Core` | The CIIR model itself (records, enums, identity hashing, `embeddingText` generation). No dependency on Roslyn, the CLI, or any serialization technology. |
+| `src/Ciir.Application` | Ports (`ICodeAnalyzer`, `ICiirWriter`, `IInputResolver`, ...) and the main use case (`AnalyzeInputHandler`). Depends only on `Ciir.Core`. |
+| `src/Ciir.CSharp` | The only project allowed to depend on `Microsoft.CodeAnalysis*`. Implements `ICodeAnalyzer` using Roslyn (syntax trees + semantic model + `MSBuildWorkspace`). |
+| `src/Ciir.Serialization` | JSONL writer, `manifest.json`/`analysis-report.json` writer, and the embedded `ciir.schema.json`. No dependency on Roslyn. |
+| `src/Ciir.Cli` | The composition root and command-line adapter (`Ciir.Cli/Composition/ServiceCollectionExtensions.cs`). Contains no analysis logic — parses arguments, wires DI, calls into `Ciir.Application`. |
+
+- **Driving ports/adapters** (things that trigger CIIR generation): the **CLI** is built today. A
+  **Web API (HTTP)** driving adapter is planned — when adding it, reuse `AnalyzeInputHandler`
+  rather than duplicating analysis logic in the API layer.
 - **Driven ports/adapters** (things the core depends on, e.g. reading source files, writing CIIR
-  output): keep these behind interfaces defined in the core so they can be swapped without
+  output): kept behind interfaces defined in `Ciir.Application` so they can be swapped without
   touching domain logic.
 
-When implementing new functionality, default to: define/extend a port (interface) in the core,
-implement the actual behavior in an adapter, and keep adapters thin — they translate between the
-outside world (CLI args, HTTP requests) and the core's application use cases.
+When implementing new functionality, default to: define/extend a port (interface) in
+`Ciir.Application`, implement the actual behavior in an adapter (`Ciir.CSharp` for analysis
+logic, `Ciir.Serialization` for output formats), and keep adapters thin. A new source-language
+generator follows the same pattern: implement `ICodeAnalyzer` in a new adapter project analogous
+to `Ciir.CSharp`, and register it in the CLI's composition root — no other project needs to
+change.
+
+See [`README.md`](README.md) for the full test-project breakdown, CLI usage/options, and generated
+output format; [`docs/ciir-specification.md`](docs/ciir-specification.md) for what the CIIR
+concepts mean; and [`schemas/ciir.schema.json`](schemas/ciir.schema.json) for the formal contract.
 
 ## Tech stack
 
@@ -93,21 +100,23 @@ CIIR schema/model or CLI behavior.
 
 ## Development commands
 
-No solution/project files exist yet. Once scaffolded, the project is expected to follow standard
-.NET CLI conventions:
-
 ```bash
-# Build
+# Restore + build (requires the .NET 10 SDK; warning-free build enforced solution-wide)
+dotnet restore
 dotnet build
 
 # Run all tests
 dotnet test
 
-# Run a single test (by fully-qualified name or filter expression)
+# Run a single test
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 
-# Run the CLI adapter
-dotnet run --project <CliProjectPath> -- <args>
+# Run the CLI against a solution, project, or directory
+dotnet run --project src/Ciir.Cli -- <path> [--output <path>] [--verbose] [--include-source] [--fail-on-error]
 ```
 
-Update this section with the actual project/solution paths once the solution is scaffolded.
+Test projects mirror `src/` one-to-one (`Ciir.Core.Tests`, `Ciir.Application.Tests`,
+`Ciir.CSharp.Tests`, `Ciir.Serialization.Tests`, `Ciir.Cli.Tests`) under `tests/`.
+`fixtures/BasicSolution` and `fixtures/MultipleProjects` are the sample C# projects the
+`Ciir.CSharp.Tests` integration tests analyze — reuse them for new test scenarios (e.g.
+`MultipleProjects` for cross-project relation behavior) rather than adding new fixture projects.
