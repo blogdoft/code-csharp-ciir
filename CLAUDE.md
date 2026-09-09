@@ -83,6 +83,14 @@ Check nuget.org for the current versions/full list before adding a dependency, s
 - **Husky.Net** manages git hooks. The pre-commit hook runs `dotnet format` (and only that) before
   every commit — don't add build/test steps to it.
 
+## Git commits
+
+Always use [Conventional Commits](https://www.conventionalcommits.org/) (semantic commits):
+`<type>(<optional scope>): <description>`, e.g. `fix(relations): resolve same-run cross-project
+relations`. Common types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `perf`. Use a
+`BREAKING CHANGE:` footer (or `!` after the type/scope) for any backward-incompatible change to the
+CIIR schema/model or CLI behavior.
+
 ## Development commands
 
 No solution/project files exist yet. Once scaffolded, the project is expected to follow standard
