@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ciir.Application\Ciir.Application.csproj" />
+    <ProjectReference Include="..\Ciir.Configuration\Ciir.Configuration.csproj" />
     <ProjectReference Include="..\Ciir.CSharp\Ciir.CSharp.csproj" />
     <ProjectReference Include="..\Ciir.Serialization\Ciir.Serialization.csproj" />
   </ItemGroup>

@@ -4,6 +4,7 @@ using Ciir.Application.ProjectDiscovery;
 using Ciir.Application.Reporting;
 using Ciir.Application.UseCases;
 using Ciir.Cli.Presentation;
+using Ciir.Configuration;
 using Ciir.CSharp.Workspace;
 using Ciir.Serialization.Writing;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<ISolutionProjectLister, MsBuildSolutionProjectLister>();
         services.AddSingleton<ProjectDiscoveryService>();
         services.AddSingleton<ICodeAnalyzer, CSharpCodeAnalyzer>();
+        services.AddSingleton<ICodeAnalyzer, ConfigurationCodeAnalyzer>();
         services.AddSingleton<ICiirWriterFactory, JsonlCiirWriterFactory>();
         services.AddSingleton<IAnalysisArtifactWriter, AnalysisArtifactWriter>();
         services.AddSingleton<IAnalysisReporter, AnalysisReporter>();

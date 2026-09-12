@@ -16,6 +16,8 @@ public sealed class AnalysisReporter : IAnalysisReporter
     private int documentsAnalyzed;
     private int typesAnalyzed;
     private int methodsAnalyzed;
+    private int configurationKeysAnalyzed;
+    private int filesAnalyzedCount;
     private int relationsResolved;
     private int relationsUnresolved;
 
@@ -48,6 +50,14 @@ public sealed class AnalysisReporter : IAnalysisReporter
         else if (document.Kind is CiirKind.Method or CiirKind.Constructor)
         {
             methodsAnalyzed++;
+        }
+        else if (document.Kind == CiirKind.ConfigurationKey)
+        {
+            configurationKeysAnalyzed++;
+        }
+        else if (document.Kind == CiirKind.File)
+        {
+            filesAnalyzedCount++;
         }
 
         foreach (var relation in document.Relations)
@@ -88,6 +98,8 @@ public sealed class AnalysisReporter : IAnalysisReporter
         {
             Types = typesAnalyzed,
             Methods = methodsAnalyzed,
+            ConfigurationKeys = configurationKeysAnalyzed,
+            Files = filesAnalyzedCount,
         },
         Errors = [.. errors],
     };

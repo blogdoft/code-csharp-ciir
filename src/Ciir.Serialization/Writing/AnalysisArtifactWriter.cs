@@ -66,6 +66,8 @@ public sealed class AnalysisArtifactWriter : IAnalysisArtifactWriter
                 filesAnalyzed = manifest.Statistics.FilesAnalyzed,
                 types = manifest.Statistics.Types,
                 methods = manifest.Statistics.Methods,
+                configurationKeys = manifest.Statistics.ConfigurationKeys,
+                files = manifest.Statistics.Files,
                 relations = manifest.Statistics.Relations,
                 unresolvedRelations = manifest.Statistics.UnresolvedRelations,
             },

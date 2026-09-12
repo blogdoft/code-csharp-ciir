@@ -23,10 +23,42 @@ contract consistently.
 
 ## `kind`
 
-The entity kind. The C# v1 generator only produces: `project`, `namespace`, `type`, `method`,
-`constructor`, `property`, `field`, `event`. The schema reserves additional values
-(`database`, `endpoint`, `configuration`, ...) for future language/domain generators — the C#
-generator does not implement functionality solely to populate every possible kind (YAGNI).
+The entity kind. The C# v1 generator produces: `project`, `namespace`, `type`, `method`,
+`constructor`, `property`, `field`, `event`. The configuration/YAML generator (see below) produces:
+`configuration`, `configuration_key`, `file`. The schema reserves further values (`database`,
+`endpoint`, ...) for future language/domain generators — no generator implements functionality
+solely to populate every possible kind (YAGNI).
+
+## Configuration and file metadata
+
+Alongside C# source, CIIR captures two kinds of non-code, repository-wide artifacts, discovered
+anywhere under the analysis root (independent of `.csproj`/solution structure) by the
+configuration/YAML generator (`Ciir.Configuration`):
+
+- **`appsettings*.json`** files are parsed into one `configuration` document for the file itself,
+  plus one `configuration_key` document per flattened key path — covering both leaf values and
+  object/array containers, so every node in the JSON tree is represented. Key paths are
+  colon-separated (`ConnectionStrings:Default`), with array elements addressed by their numeric
+  index (`AllowedHosts:0`), matching the convention `Microsoft.Extensions.Configuration` itself
+  uses. Containment is conveyed the same way as for C# members: via `symbol.container` (the
+  `configuration` document's qualified name), never a `contains` relation.
+- **`*.yaml`/`*.yml`** files are captured only as `file` metadata (path, content hash, size) —
+  their content is never structurally parsed. YAML serves too many unrelated purposes (CI
+  workflows, docker-compose, Kubernetes manifests, ...) to model with one schema; a `file` document
+  only asserts that the file exists and what its content hash is.
+
+**Values are never captured.** A `configuration_key` document's `configurationKey.valueType`
+records only the JSON value's type (`string`, `number`, `boolean`, `array`, `object`, `null`) —
+never the value itself. `appsettings*.json` files commonly hold secrets (connection strings, API
+keys), and CIIR output may be indexed or embedded by downstream tooling; omitting values is a
+deliberate privacy guarantee, not an oversight, and applies uniformly regardless of the key's name.
+
+Both kinds use `symbol.canonicalName` as `{relativePath}` (for `configuration`/`file`) or
+`{relativePath}#{keyPath}` (for `configuration_key`) — stable and deterministic across runs, and
+disambiguating identical key paths across sibling files (e.g. `appsettings.json` vs.
+`appsettings.Development.json`). `language` is `"json"` for `configuration`/`configuration_key` and
+`"yaml"` for `file`; `project` is the fixed logical project name `"Configuration"`, since these
+files are not necessarily owned by any single `.csproj`.
 
 ## Identity (`id`)
 

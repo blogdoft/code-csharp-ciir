@@ -19,6 +19,9 @@ public static class CiirKindNames
         CiirKind.Property => "property",
         CiirKind.Field => "field",
         CiirKind.Event => "event",
+        CiirKind.File => "file",
+        CiirKind.Configuration => "configuration",
+        CiirKind.ConfigurationKey => "configuration_key",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, message: null),
     };
 }

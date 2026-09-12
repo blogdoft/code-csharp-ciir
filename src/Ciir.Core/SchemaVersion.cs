@@ -4,5 +4,5 @@ namespace Ciir.Core;
 public static class SchemaVersion
 {
     /// <summary>The schema version produced by the current CIIR model.</summary>
-    public const string Current = "1.1";
+    public const string Current = "1.2";
 }

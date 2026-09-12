@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ciir.Core\Ciir.Core.csproj" />
+    <ProjectReference Include="..\Ciir.Application\Ciir.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ciir.Configuration.Tests" />
+  </ItemGroup>
+
+</Project>

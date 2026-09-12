@@ -2,9 +2,10 @@ namespace Ciir.Core;
 
 /// <summary>
 /// The kind of software entity a <see cref="CiirDocument"/> represents.
-/// Only the kinds required for the C# v1 generator are defined; the CIIR contract
-/// reserves room for additional kinds (e.g. database/configuration/endpoint entities)
-/// for future language generators.
+/// The C# v1 generator produces <see cref="Project"/> through <see cref="Event"/>; the
+/// configuration/YAML generator produces <see cref="File"/>, <see cref="Configuration"/> and
+/// <see cref="ConfigurationKey"/>. The CIIR contract reserves room for further kinds
+/// (e.g. database/endpoint entities) for future language generators.
 /// </summary>
 public enum CiirKind
 {
@@ -31,4 +32,13 @@ public enum CiirKind
 
     /// <summary>An event declaration.</summary>
     Event,
+
+    /// <summary>A generic file captured only as metadata, without structural parsing (e.g. a YAML file).</summary>
+    File,
+
+    /// <summary>A structured configuration file whose keys are individually represented (e.g. an appsettings.json).</summary>
+    Configuration,
+
+    /// <summary>One flattened key within a <see cref="Configuration"/> document.</summary>
+    ConfigurationKey,
 }

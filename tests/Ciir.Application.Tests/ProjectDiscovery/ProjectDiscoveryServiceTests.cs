@@ -107,6 +107,45 @@ public class ProjectDiscoveryServiceTests : IDisposable
         first.ShouldBe([.. first.OrderBy(p => p, StringComparer.OrdinalIgnoreCase)]);
     }
 
+    [Fact]
+    public void DiscoverAuxiliaryFiles_FindsLooseFiles_AtRootAndInSubdirectories()
+    {
+        var appsettings = CreateFile("appsettings.json");
+        var yaml = CreateFile("infra/docker-compose.yml");
+
+        var result = ProjectDiscoveryService.DiscoverAuxiliaryFiles(rootDirectory);
+
+        result.ShouldBe([Path.GetFullPath(appsettings), Path.GetFullPath(yaml)], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void DiscoverAuxiliaryFiles_ExcludesIgnoredDirectories()
+    {
+        CreateFile("bin/Debug/appsettings.json");
+        CreateFile("obj/appsettings.json");
+        CreateFile(".git/config.yaml");
+        CreateFile(".vs/config.yaml");
+        CreateFile("node_modules/pkg/config.yaml");
+        var real = CreateFile("src/appsettings.json");
+
+        var result = ProjectDiscoveryService.DiscoverAuxiliaryFiles(rootDirectory);
+
+        result.ShouldBe([Path.GetFullPath(real)]);
+    }
+
+    [Fact]
+    public void DiscoverAuxiliaryFiles_ExcludesProjectSolutionAndCSharpFiles()
+    {
+        CreateFile("App.csproj");
+        CreateFile("App.sln");
+        CreateFile("Program.cs");
+        var yaml = CreateFile("values.yaml");
+
+        var result = ProjectDiscoveryService.DiscoverAuxiliaryFiles(rootDirectory);
+
+        result.ShouldBe([Path.GetFullPath(yaml)]);
+    }
+
     public void Dispose() => Directory.Delete(rootDirectory, recursive: true);
 
     private string CreateFile(string relativePath)

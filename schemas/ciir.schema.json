@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:ciir:schema:1.1",
+  "$id": "urn:ciir:schema:1.2",
   "title": "Code Intelligence Intermediate Representation (CIIR)",
-  "description": "A language-independent intermediate representation describing statically observable software entities, their semantic properties, source evidence, relationships, documentation and selected control-flow characteristics. See docs/ciir-specification.md for the semantic meaning of each concept defined here.",
+  "description": "A language-independent intermediate representation describing statically observable software entities, their semantic properties, source evidence, relationships, documentation and selected control-flow characteristics, plus configuration and generic-file metadata. See docs/ciir-specification.md for the semantic meaning of each concept defined here.",
   "type": "object",
   "required": ["schemaVersion", "id", "kind", "language", "project", "symbol"],
   "properties": {
@@ -76,6 +76,12 @@
     "event": {
       "$ref": "#/$defs/eventInfo"
     },
+    "configurationKey": {
+      "$ref": "#/$defs/configurationKeyInfo"
+    },
+    "file": {
+      "$ref": "#/$defs/fileInfo"
+    },
     "embeddingText": {
       "type": "string",
       "description": "Deterministic semantic-projection text used for embedding generation. Never contains the embedding vector itself."
@@ -116,6 +122,14 @@
     {
       "if": { "properties": { "kind": { "const": "event" } }, "required": ["kind"] },
       "then": { "required": ["event"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "configuration_key" } }, "required": ["kind"] },
+      "then": { "required": ["configurationKey"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "file" } }, "required": ["kind"] },
+      "then": { "required": ["file"] }
     }
   ],
   "additionalProperties": false,
@@ -146,7 +160,7 @@
         "endpoint",
         "message"
       ],
-      "description": "The kind of software entity represented. The C# v1 generator only produces: project, namespace, type, method, constructor, property, field, event. The remaining values are reserved for future language generators."
+      "description": "The kind of software entity represented. The C# v1 generator produces: project, namespace, type, method, constructor, property, field, event. The configuration/YAML generator produces: configuration, configuration_key, file. The remaining values are reserved for future language generators."
     },
     "symbol": {
       "type": "object",
@@ -432,6 +446,26 @@
           "minItems": 1
         },
         "type": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "configurationKeyInfo": {
+      "type": "object",
+      "required": ["valueType"],
+      "properties": {
+        "valueType": {
+          "type": "string",
+          "enum": ["string", "number", "boolean", "array", "object", "null"],
+          "description": "The JSON value type at this key path. The value itself is never captured."
+        }
+      },
+      "additionalProperties": false
+    },
+    "fileInfo": {
+      "type": "object",
+      "required": ["sizeBytes"],
+      "properties": {
+        "sizeBytes": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },

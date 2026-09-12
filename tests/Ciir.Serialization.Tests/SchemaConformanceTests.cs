@@ -123,6 +123,46 @@ public class SchemaConformanceTests
         }
         """;
 
+    private const string ValidConfigurationJson = """
+        {
+          "schemaVersion": "1.0",
+          "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "configuration",
+          "language": "json",
+          "project": "Configuration",
+          "symbol": { "name": "appsettings.json", "qualifiedName": "appsettings.json", "canonicalName": "appsettings.json" }
+        }
+        """;
+
+    private const string ValidConfigurationKeyJson = """
+        {
+          "schemaVersion": "1.0",
+          "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "configuration_key",
+          "language": "json",
+          "project": "Configuration",
+          "symbol": {
+            "name": "Default",
+            "qualifiedName": "appsettings.json:ConnectionStrings:Default",
+            "canonicalName": "appsettings.json#ConnectionStrings:Default",
+            "container": "appsettings.json"
+          },
+          "configurationKey": { "valueType": "string" }
+        }
+        """;
+
+    private const string ValidFileJson = """
+        {
+          "schemaVersion": "1.0",
+          "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "file",
+          "language": "yaml",
+          "project": "Configuration",
+          "symbol": { "name": "docker-compose.yml", "qualifiedName": "docker-compose.yml", "canonicalName": "docker-compose.yml" },
+          "file": { "sizeBytes": 42 }
+        }
+        """;
+
     public static TheoryData<string, string> ValidSamples() => new()
     {
         { "project", """{"schemaVersion":"1.0","id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"project","language":"csharp","project":"Payments.Application","symbol":{"name":"Payments.Application","qualifiedName":"Payments.Application","canonicalName":"Payments.Application"}}""" },
@@ -133,6 +173,9 @@ public class SchemaConformanceTests
         { "property", ValidPropertyJson },
         { "field", ValidFieldJson },
         { "event", ValidEventJson },
+        { "configuration", ValidConfigurationJson },
+        { "configuration_key", ValidConfigurationKeyJson },
+        { "file", ValidFileJson },
     };
 
     public static TheoryData<string, string> InvalidSamples() => new()
@@ -141,6 +184,8 @@ public class SchemaConformanceTests
         { "invalid kind enum value", """{"schemaVersion":"1.0","id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"not-a-real-kind","language":"csharp","project":"P","symbol":{"name":"Order","qualifiedName":"Order","canonicalName":"Order"}}""" },
         { "type kind missing type block", """{"schemaVersion":"1.0","id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"type","language":"csharp","project":"P","symbol":{"name":"Order","qualifiedName":"Order","canonicalName":"Order"}}""" },
         { "unknown top-level property", """{"schemaVersion":"1.0","id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"namespace","language":"csharp","project":"P","symbol":{"name":"Order","qualifiedName":"Order","canonicalName":"Order"},"notAField":true}""" },
+        { "configuration_key kind missing configurationKey block", """{"schemaVersion":"1.0","id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"configuration_key","language":"json","project":"P","symbol":{"name":"K","qualifiedName":"appsettings.json:K","canonicalName":"appsettings.json#K"}}""" },
+        { "file kind missing file block", """{"schemaVersion":"1.0","id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"file","language":"yaml","project":"P","symbol":{"name":"a.yaml","qualifiedName":"a.yaml","canonicalName":"a.yaml"}}""" },
     };
 
     [Fact]

@@ -1,5 +1,6 @@
 using Ciir.Core.Comments;
 using Ciir.Core.Conditions;
+using Ciir.Core.Configuration;
 using Ciir.Core.ControlFlow;
 using Ciir.Core.Documentation;
 using Ciir.Core.Extensions;
@@ -73,6 +74,12 @@ public sealed record CiirDocument
 
     /// <summary>Present when <see cref="Kind"/> is <see cref="CiirKind.Event"/>.</summary>
     public CiirEventInfo? Event { get; init; }
+
+    /// <summary>Present when <see cref="Kind"/> is <see cref="CiirKind.ConfigurationKey"/>.</summary>
+    public CiirConfigurationKeyInfo? ConfigurationKey { get; init; }
+
+    /// <summary>Present when <see cref="Kind"/> is <see cref="CiirKind.File"/>.</summary>
+    public CiirFileInfo? File { get; init; }
 
     /// <summary>The generated semantic-projection text used for embedding generation.</summary>
     public string? EmbeddingText { get; init; }

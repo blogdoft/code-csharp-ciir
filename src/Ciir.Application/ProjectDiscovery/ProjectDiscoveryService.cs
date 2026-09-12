@@ -10,7 +10,41 @@ namespace Ciir.Application.ProjectDiscovery;
 /// </summary>
 public sealed class ProjectDiscoveryService(ISolutionProjectLister solutionProjectLister)
 {
-    private static readonly string[] IgnoredDirectoryNames = ["bin", "obj", ".git", ".vs"];
+    /// <summary>
+    /// Discovers every file under <paramref name="rootDirectory"/> that is neither a project or
+    /// solution file (handled by <see cref="DiscoverAsync"/>) nor a C# source file, skipping the
+    /// same ignored directories. Always rooted at the analysis root, regardless of input type.
+    /// </summary>
+    /// <param name="rootDirectory">The analysis root to walk.</param>
+    public static IReadOnlyList<string> DiscoverAuxiliaryFiles(string rootDirectory)
+    {
+        var directories = new Stack<string>();
+        directories.Push(rootDirectory);
+        var files = new List<string>();
+
+        while (directories.Count > 0)
+        {
+            var currentDirectory = directories.Pop();
+
+            foreach (var file in Directory.EnumerateFiles(currentDirectory))
+            {
+                if (!IsProjectOrSolutionFile(file) && !string.Equals(Path.GetExtension(file), ".cs", StringComparison.OrdinalIgnoreCase))
+                {
+                    files.Add(Path.GetFullPath(file));
+                }
+            }
+
+            foreach (var subdirectory in Directory.EnumerateDirectories(currentDirectory))
+            {
+                if (!IgnoredDirectories.IsIgnored(Path.GetFileName(subdirectory)))
+                {
+                    directories.Push(subdirectory);
+                }
+            }
+        }
+
+        return [.. new SortedSet<string>(files, StringComparer.OrdinalIgnoreCase)];
+    }
 
     /// <summary>Discovers the unique, deterministically ordered set of project paths for <paramref name="input"/>.</summary>
     /// <param name="input">The resolved analysis input.</param>
@@ -49,7 +83,7 @@ public sealed class ProjectDiscoveryService(ISolutionProjectLister solutionProje
 
             foreach (var subdirectory in Directory.EnumerateDirectories(currentDirectory))
             {
-                if (!IgnoredDirectoryNames.Contains(Path.GetFileName(subdirectory), StringComparer.OrdinalIgnoreCase))
+                if (!IgnoredDirectories.IsIgnored(Path.GetFileName(subdirectory)))
                 {
                     directories.Push(subdirectory);
                 }

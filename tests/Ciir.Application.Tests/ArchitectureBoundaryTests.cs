@@ -23,6 +23,12 @@ public class ArchitectureBoundaryTests
         AssertNoRoslynReference(typeof(Ports.ICodeAnalyzer).Assembly);
     }
 
+    [Fact]
+    public void CiirConfiguration_DoesNotReferenceRoslyn()
+    {
+        AssertNoRoslynReference(typeof(Configuration.ConfigurationCodeAnalyzer).Assembly);
+    }
+
     private static void AssertNoRoslynReference(Assembly assembly)
     {
         var referencedRoslynAssemblies = assembly.GetReferencedAssemblies()

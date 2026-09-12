@@ -13,7 +13,7 @@ namespace Ciir.Application.UseCases;
 public sealed class AnalyzeInputHandler(
     IInputResolver inputResolver,
     ProjectDiscoveryService projectDiscovery,
-    ICodeAnalyzer codeAnalyzer,
+    IEnumerable<ICodeAnalyzer> codeAnalyzers,
     ICiirWriterFactory writerFactory,
     IAnalysisArtifactWriter artifactWriter,
     IAnalysisReporter reporter,
@@ -52,6 +52,8 @@ public sealed class AnalyzeInputHandler(
             reporter.RecordProjectDiscovered(projectPath);
         }
 
+        var auxiliaryFilePaths = ProjectDiscoveryService.DiscoverAuxiliaryFiles(rootDirectory);
+
         try
         {
             Directory.CreateDirectory(command.Options.OutputPath);
@@ -61,7 +63,7 @@ public sealed class AnalyzeInputHandler(
             return new AnalysisResult { ExitCode = AnalysisExitCode.OutputWriteFailure, ErrorMessage = ex.Message };
         }
 
-        var hasFatalProjectFailure = await AnalyzeProjectsAsync(projectPaths, rootDirectory, command.Options, cancellationToken);
+        var hasFatalProjectFailure = await AnalyzeProjectsAsync(projectPaths, auxiliaryFilePaths, rootDirectory, command.Options, cancellationToken);
         var report = reporter.BuildReport();
 
         try
@@ -108,6 +110,8 @@ public sealed class AnalyzeInputHandler(
                 FilesAnalyzed = report.Documents.FilesAnalyzed,
                 Types = report.Entities.Types,
                 Methods = report.Entities.Methods,
+                ConfigurationKeys = report.Entities.ConfigurationKeys,
+                Files = report.Entities.Files,
                 Relations = report.Relations.Resolved + report.Relations.Unresolved,
                 UnresolvedRelations = report.Relations.Unresolved,
             },
@@ -116,7 +120,12 @@ public sealed class AnalyzeInputHandler(
 
     private static string HashFile(string path) => Sha256Text.ComputePrefixedHash(File.ReadAllBytes(path));
 
-    private async Task<bool> AnalyzeProjectsAsync(IReadOnlyList<string> projectPaths, string rootDirectory, AnalysisOptions options, CancellationToken cancellationToken)
+    private async Task<bool> AnalyzeProjectsAsync(
+        IReadOnlyList<string> projectPaths,
+        IReadOnlyList<string> auxiliaryFilePaths,
+        string rootDirectory,
+        AnalysisOptions options,
+        CancellationToken cancellationToken)
     {
         var hasFatalProjectFailure = false;
 
@@ -129,8 +138,9 @@ public sealed class AnalyzeInputHandler(
 
             try
             {
+                var analyzer = codeAnalyzers.First(candidate => candidate.CanAnalyze(projectPath));
                 var documentCount = 0;
-                await foreach (var document in codeAnalyzer.AnalyzeAsync(projectPath, rootDirectory, options, cancellationToken))
+                await foreach (var document in analyzer.AnalyzeAsync(projectPath, rootDirectory, options, cancellationToken))
                 {
                     reporter.RecordDocument(document);
                     await writer.WriteAsync(document, cancellationToken);
@@ -144,6 +154,29 @@ public sealed class AnalyzeInputHandler(
             {
                 reporter.RecordProjectFailed(projectPath, ex.Message, "project_load");
                 progress.OnProjectFailed(projectPath, ex.Message);
+                hasFatalProjectFailure = true;
+            }
+        }
+
+        foreach (var filePath in auxiliaryFilePaths)
+        {
+            var analyzer = codeAnalyzers.FirstOrDefault(candidate => candidate.CanAnalyze(filePath));
+            if (analyzer is null)
+            {
+                continue;
+            }
+
+            try
+            {
+                await foreach (var document in analyzer.AnalyzeAsync(filePath, rootDirectory, options, cancellationToken))
+                {
+                    reporter.RecordDocument(document);
+                    await writer.WriteAsync(document, cancellationToken);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                reporter.RecordProjectFailed(filePath, ex.Message, "configuration_analysis");
                 hasFatalProjectFailure = true;
             }
         }
