@@ -1,8 +1,10 @@
-# Mirrors this repository to GitHub once a day (all branches and tags, deleting on the
-# GitHub side anything removed here). Runs daily at 20:00 America/Sao_Paulo time (23:00
-# UTC - Brazil has had no DST since 2019) via a cron schedule instead of on every push.
+# Mirrors this repository to GitHub (all branches and tags, deleting on the GitHub side
+# anything removed here). Runs on pushes to main, on pushed v* tags, manually, and daily at
+# 20:00 America/Sao_Paulo time (23:00 UTC - Brazil has had no DST since 2019) via a cron
+# schedule. Every run mirrors the full state of origin, whichever ref triggered it.
 # On weekdays (Monday to Friday) it only mirrors between 20:00 and 07:00 America/Sao_Paulo
-# time; on Saturdays and Sundays that window is not checked. Outside the window nothing is done.
+# time; on Saturdays and Sundays that window is not checked. Outside the window nothing is done
+# (a weekday push during working hours is picked up by the 20:00 cron run).
 # Requires a Forgejo repo secret configured in Settings > Actions > Secrets:
 #   MIRROR_GITHUB_TOKEN - a GitHub Personal Access Token (classic, "repo" scope, or
 #   fine-grained with "Contents: read and write") for an account with push access to
@@ -10,16 +12,21 @@
 name: Mirror to GitHub
 
 on:
+  # Only main and release tags, not every branch: feature branches are picked up by the daily
+  # run, and a main push right before a tag push is what the concurrency guard below handles.
+  push:
+    branches: [main]
+    tags: ["v*"]
   schedule:
     - cron: "0 23 * * *"
-  # Lets a release tag reach GitHub right away (the release workflow there is triggered by the
-  # pushed tag) instead of waiting for the next scheduled run. Subject to the same window check.
+  # Runs the mirror by hand, e.g. to push a release tag right away (the release workflow on
+  # GitHub is triggered by the pushed tag). Subject to the same window check.
   workflow_dispatch:
 
-# Guards against overlapping runs (e.g. a manual re-run while the scheduled run is still in
-# progress) racing on the same working directory's refs. Each run mirrors the full current
-# state of origin, so it's safe (and more efficient) to drop a still-running, now-stale run
-# in favor of the newest.
+# Guards against overlapping runs (e.g. a main push and a tag push landing close together, or a
+# manual re-run while the scheduled run is still in progress) racing on the same working
+# directory's refs. Each run mirrors the full current state of origin, so it's safe (and more
+# efficient) to drop a still-running, now-stale run in favor of the newest.
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
