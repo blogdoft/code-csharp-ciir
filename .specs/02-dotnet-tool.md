@@ -245,10 +245,11 @@ fallback; como o diretório existe, o arquivo é ignorado lá — confirmar).
   variável do repositório.
 
 **Fluxo de release:** criar a tag `vX.Y.Z` no Forgejo → o espelho a leva ao GitHub → o workflow
-dispara. O espelho roda uma vez por dia (23:00 UTC, 20h em São Paulo) e também pode ser disparado à
-mão (`workflow_dispatch` em `.forgejo/workflows/mirror-to-github.yml`) para levar a tag ao GitHub sem
-esperar. Em dias úteis (segunda a sexta) ele só espelha entre 20h e 7h (America/Sao_Paulo), inclusive
-nas execuções manuais; aos sábados e domingos essa janela não é verificada.
+dispara. O espelho (`.forgejo/workflows/mirror-to-github.yml`) roda a cada push na `main`, a cada
+push de tag `v*`, uma vez por dia (23:00 UTC, 20h em São Paulo) e também pode ser disparado à mão
+(`workflow_dispatch`). Em dias úteis (segunda a sexta) ele só espelha entre 20h e 7h
+(America/Sao_Paulo), em qualquer tipo de execução — um push em horário comercial fica para a
+execução diária das 20h; aos sábados e domingos essa janela não é verificada.
 
 ## 9. Documentação
 
