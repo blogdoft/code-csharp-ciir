@@ -11,6 +11,27 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <!-- Package metadata shared by every project; only Ciir.Cli is packable (as a .NET tool). -->
+  <PropertyGroup>
+    <Authors>Francisco Thiago de Almeida</Authors>
+    <Copyright>Copyright (c) 2026 Francisco Thiago de Almeida</Copyright>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/blogdoft/code-csharp-ciir</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/blogdoft/code-csharp-ciir</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <!-- CI (GitVersion) overrides Version with -p:Version=<SemVer>; this is the local-build fallback. -->
+  <PropertyGroup>
+    <Version Condition="'$(Version)' == ''">0.0.0-local</Version>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
     <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />

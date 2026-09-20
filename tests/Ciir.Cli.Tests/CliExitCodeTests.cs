@@ -1,5 +1,4 @@
 using Shouldly;
-using System.Diagnostics;
 
 namespace Ciir.Cli.Tests;
 
@@ -14,7 +13,7 @@ public class CliExitCodeTests
     {
         var outputDirectory = CreateTempOutputDirectory();
 
-        var result = await RunCliAsync(["/definitely/does/not/exist.sln", "--output", outputDirectory]);
+        var result = await CliRunner.RunAsync(["/definitely/does/not/exist.sln", "--output", outputDirectory]);
 
         result.ExitCode.ShouldBe(2);
         result.StandardError.ShouldContain("does not exist");
@@ -23,7 +22,7 @@ public class CliExitCodeTests
     [Fact]
     public async Task Run_ReturnsInvalidInput_WhenPathArgumentIsMissing()
     {
-        var result = await RunCliAsync([]);
+        var result = await CliRunner.RunAsync([]);
 
         result.ExitCode.ShouldBe(2);
     }
@@ -37,7 +36,7 @@ public class CliExitCodeTests
 
         try
         {
-            var result = await RunCliAsync([readmePath, "--output", outputDirectory]);
+            var result = await CliRunner.RunAsync([readmePath, "--output", outputDirectory]);
 
             result.ExitCode.ShouldBe(2);
         }
@@ -49,23 +48,4 @@ public class CliExitCodeTests
 
     private static string CreateTempOutputDirectory() =>
         Path.Combine(Path.GetTempPath(), "ciir-cli-tests-" + Guid.NewGuid());
-
-    private static async Task<(int ExitCode, string StandardOutput, string StandardError)> RunCliAsync(IReadOnlyList<string> arguments)
-    {
-        var cliPath = Path.Combine(AppContext.BaseDirectory, "ciir.dll");
-        var startInfo = new ProcessStartInfo("dotnet", [cliPath, .. arguments])
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start the CLI process.");
-        var standardOutputTask = process.StandardOutput.ReadToEndAsync();
-        var standardErrorTask = process.StandardError.ReadToEndAsync();
-
-        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-
-        return (process.ExitCode, await standardOutputTask, await standardErrorTask);
-    }
 }

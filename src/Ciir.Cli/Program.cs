@@ -1,6 +1,7 @@
 using Ciir.Application.Model;
 using Ciir.Application.UseCases;
 using Ciir.Cli.Composition;
+using Ciir.Cli.Presentation;
 using Microsoft.Extensions.DependencyInjection;
 using System.CommandLine;
 
@@ -17,6 +18,7 @@ var outputOption = new Option<string>("--output")
 
 var verboseOption = new Option<bool>("--verbose") { Description = "Emit verbose diagnostic logging." };
 var noProgressOption = new Option<bool>("--no-progress") { Description = "Suppress progress reporting." };
+var noBannerOption = new Option<bool>("--no-banner") { Description = $"Suppress the splash screen (also suppressed when {SplashScreen.NoLogoEnvironmentVariable}=1 or true)." };
 var includeSourceOption = new Option<bool>("--include-source") { Description = "Embed literal source text in the output." };
 var failOnErrorOption = new Option<bool>("--fail-on-error") { Description = "Exit with a non-zero code if any project fails to analyze." };
 
@@ -26,12 +28,18 @@ var rootCommand = new RootCommand("Statically analyzes C# source code and produc
     outputOption,
     verboseOption,
     noProgressOption,
+    noBannerOption,
     includeSourceOption,
     failOnErrorOption,
 };
 
 rootCommand.SetAction(async (parseResult, cancellationToken) =>
 {
+    if (!SplashScreen.IsSuppressed(parseResult.GetValue(noBannerOption), Environment.GetEnvironmentVariable(SplashScreen.NoLogoEnvironmentVariable)))
+    {
+        SplashScreen.Write(Console.Out, GeneratorVersion.Current);
+    }
+
     var verbose = parseResult.GetValue(verboseOption);
     var noProgress = parseResult.GetValue(noProgressOption);
 

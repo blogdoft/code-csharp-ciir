@@ -1,6 +1,8 @@
 # Mirrors this repository to GitHub once a day (all branches and tags, deleting on the
 # GitHub side anything removed here). Runs daily at 20:00 America/Sao_Paulo time (23:00
 # UTC - Brazil has had no DST since 2019) via a cron schedule instead of on every push.
+# On weekdays (Monday to Friday) it only mirrors between 20:00 and 07:00 America/Sao_Paulo
+# time; on Saturdays and Sundays that window is not checked. Outside the window nothing is done.
 # Requires a Forgejo repo secret configured in Settings > Actions > Secrets:
 #   MIRROR_GITHUB_TOKEN - a GitHub Personal Access Token (classic, "repo" scope, or
 #   fine-grained with "Contents: read and write") for an account with push access to
@@ -10,6 +12,9 @@ name: Mirror to GitHub
 on:
   schedule:
     - cron: "0 23 * * *"
+  # Lets a release tag reach GitHub right away (the release workflow there is triggered by the
+  # pushed tag) instead of waiting for the next scheduled run. Subject to the same window check.
+  workflow_dispatch:
 
 # Guards against overlapping runs (e.g. a manual re-run while the scheduled run is still in
 # progress) racing on the same working directory's refs. Each run mirrors the full current
@@ -23,12 +28,29 @@ jobs:
   mirror:
     runs-on: ubuntu
     steps:
+      # Monday to Friday: only inside 20:00-07:00. Saturday and Sunday: no window check.
+      - name: Check the mirroring window
+        id: window
+        run: |
+          # Brazil has had no DST since 2019, so a fixed UTC-3 offset is America/Sao_Paulo time.
+          set -- $(date -u -d '3 hours ago' '+%u %-H')
+          weekday=$1 hour=$2 # weekday: 1 = Monday ... 7 = Sunday; hour: 0-23
+          if [ "$weekday" -ge 6 ] || [ "$hour" -ge 20 ] || [ "$hour" -lt 7 ]; then
+            open=true
+          else
+            open=false
+            echo "Weekday outside 20:00-07:00 (Sao Paulo time): nothing to do."
+          fi
+          echo "open=$open" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
+        if: steps.window.outputs.open == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Fetch all branches and tags
+        if: steps.window.outputs.open == 'true'
         run: |
           git fetch origin --prune '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
           git update-ref -d refs/remotes/origin/HEAD 2>/dev/null || true
@@ -46,6 +68,7 @@ jobs:
       # API blip) without masking a genuine push failure, which fails both attempts
       # identically.
       - name: Push mirror to GitHub
+        if: steps.window.outputs.open == 'true'
         env:
           MIRROR_GITHUB_TOKEN: ${{ secrets.MIRROR_GITHUB_TOKEN }}
         run: |

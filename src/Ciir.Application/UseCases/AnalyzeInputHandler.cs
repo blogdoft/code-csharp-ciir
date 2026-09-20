@@ -12,6 +12,7 @@ namespace Ciir.Application.UseCases;
 /// </summary>
 public sealed class AnalyzeInputHandler(
     IInputResolver inputResolver,
+    IEnvironmentValidator environmentValidator,
     ProjectDiscoveryService projectDiscovery,
     IEnumerable<ICodeAnalyzer> codeAnalyzers,
     ICiirWriterFactory writerFactory,
@@ -30,6 +31,12 @@ public sealed class AnalyzeInputHandler(
         if (inputResult.IsFailure)
         {
             return new AnalysisResult { ExitCode = AnalysisExitCode.InvalidInput, ErrorMessage = inputResult.Failure.Message };
+        }
+
+        var environmentResult = environmentValidator.Validate();
+        if (environmentResult.IsFailure)
+        {
+            return new AnalysisResult { ExitCode = AnalysisExitCode.EnvironmentError, ErrorMessage = environmentResult.Failure.Message };
         }
 
         var rootDirectory = inputResult.Value.Type == AnalysisInputType.Directory
@@ -90,7 +97,7 @@ public sealed class AnalyzeInputHandler(
 
         return new AnalysisManifest
         {
-            GeneratorVersion = typeof(AnalyzeInputHandler).Assembly.GetName().Version?.ToString() ?? "0.0.0",
+            GeneratorVersion = GeneratorVersion.Current,
             InputType = inputType,
             InputPath = command.Path,
             GeneratedAt = DateTimeOffset.UtcNow,

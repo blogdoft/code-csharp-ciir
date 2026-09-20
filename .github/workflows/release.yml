@@ -1,0 +1,125 @@
+# Builds, tests, packs and (on a version tag) publishes the BlogDoFT.Ciir .NET tool to nuget.org.
+# See .specs/02-dotnet-tool.md (section 8).
+#
+# Release flow: tag vX.Y.Z on Forgejo -> the mirror workflow pushes it to GitHub -> this workflow
+# runs. The publish job waits for approval on the "nuget" environment (required reviewers), since
+# a version pushed to nuget.org can only be unlisted, never replaced.
+#
+# Publishing uses nuget.org Trusted Publishing (OIDC): no long-lived API key is stored. The job
+# exchanges its GitHub OIDC token for a short-lived API key via NuGet/login. Requires:
+#   - a trusted publishing policy on nuget.org for this repository (blogdoft/code-csharp-ciir),
+#     workflow file "release.yml" and environment "nuget";
+#   - a NUGET_USER secret (or repository variable) holding the nuget.org username (profile name,
+#     not the e-mail address) that owns the policy.
+#
+# workflow_dispatch is a dry run: build + test + pack + verify, never publishes.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # GitVersion needs the full history and tags
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # On a tag, the tag is the source of truth; elsewhere GitVersion derives a pre-release
+      # version from the tags and Conventional Commits.
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::Tag '$GITHUB_REF_NAME' is not a valid vMAJOR.MINOR.PATCH[-prerelease] version"
+              exit 1
+            fi
+          else
+            dotnet tool restore
+            version="$(dotnet dotnet-gitversion /output json /showvariable SemVer)"
+          fi
+          echo "Version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Test
+        run: dotnet test -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack src/Ciir.Cli -c Release --no-build -p:Version=${{ steps.version.outputs.version }} -o artifacts
+
+      - name: Verify package (contents, install, smoke test)
+        run: scripts/verify-tool-package.sh "${{ steps.version.outputs.version }}"
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/*.nupkg
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write # lets NuGet/login request the GitHub OIDC token
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts
+
+      # Exchanges the OIDC token for a temporary (1 hour) API key scoped to the policy.
+      - name: NuGet login (trusted publishing)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to nuget.org
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --source https://api.nuget.org/v3/index.json
+          --api-key "$NUGET_API_KEY"
+          --skip-duplicate

@@ -13,6 +13,7 @@ namespace Ciir.Application.Tests.UseCases;
 public class AnalyzeInputHandlerTests : IDisposable
 {
     private readonly IInputResolver inputResolver = Substitute.For<IInputResolver>();
+    private readonly IEnvironmentValidator environmentValidator = Substitute.For<IEnvironmentValidator>();
     private readonly ISolutionProjectLister solutionProjectLister = Substitute.For<ISolutionProjectLister>();
     private readonly ICodeAnalyzer codeAnalyzer = Substitute.For<ICodeAnalyzer>();
     private readonly ICiirWriterFactory writerFactory = Substitute.For<ICiirWriterFactory>();
@@ -33,6 +34,7 @@ public class AnalyzeInputHandlerTests : IDisposable
         Directory.CreateDirectory(rootDirectory);
         projectPath = Path.Combine(rootDirectory, "FakeProject.csproj");
 
+        environmentValidator.Validate().Returns(Result.AsSuccess());
         writerFactory.Create(Arg.Any<string>()).Returns(writer);
         reporter.BuildReport().Returns(SuccessfulReport());
 
@@ -46,6 +48,7 @@ public class AnalyzeInputHandlerTests : IDisposable
 
         handler = new AnalyzeInputHandler(
             inputResolver,
+            environmentValidator,
             new ProjectDiscoveryService(solutionProjectLister),
             [codeAnalyzer],
             writerFactory,
@@ -63,6 +66,46 @@ public class AnalyzeInputHandlerTests : IDisposable
 
         result.ExitCode.ShouldBe(AnalysisExitCode.InvalidInput);
         codeAnalyzer.DidNotReceiveWithAnyArgs().AnalyzeAsync(default!, default!, default!, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ReturnsInvalidInput_WithoutValidatingEnvironment_WhenInputResolutionFails()
+    {
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromFailure(new Failure("path_not_found", "nope")));
+        environmentValidator.Validate().Returns(Result.AsFailure(new Failure("sdk_not_found", "no sdk")));
+
+        var result = await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
+
+        result.ExitCode.ShouldBe(AnalysisExitCode.InvalidInput);
+        environmentValidator.DidNotReceive().Validate();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ReturnsEnvironmentError_AndAnalyzesNothing_WhenEnvironmentIsInvalid()
+    {
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
+        environmentValidator.Validate().Returns(Result.AsFailure(new Failure("sdk_not_found", "No .NET SDK was found.")));
+
+        var result = await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
+
+        result.ExitCode.ShouldBe(AnalysisExitCode.EnvironmentError);
+        result.ErrorMessage.ShouldBe("No .NET SDK was found.");
+        codeAnalyzer.DidNotReceiveWithAnyArgs().AnalyzeAsync(default!, default!, default!, TestContext.Current.CancellationToken);
+        await artifactWriter.DidNotReceiveWithAnyArgs().WriteManifestAsync(default!, default!, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ReportsGeneratorVersionInManifest()
+    {
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
+
+        await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
+
+        await artifactWriter.Received(1).WriteManifestAsync(
+            Arg.Is<AnalysisManifest>(manifest => manifest.GeneratorVersion == GeneratorVersion.Current),
+            outputPath,
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -186,6 +229,7 @@ public class AnalyzeInputHandlerTests : IDisposable
 
         var multiAnalyzerHandler = new AnalyzeInputHandler(
             inputResolver,
+            environmentValidator,
             new ProjectDiscoveryService(solutionProjectLister),
             [codeAnalyzer, yamlAnalyzer],
             writerFactory,

@@ -87,9 +87,49 @@ Test projects mirror `src/`:
 - `Ciir.Serialization.Tests` — JSONL serialization shape (camelCase, enum tokens, empty-collection
   omission) and schema-conformance tests (valid/invalid sample payloads for every required `kind`).
 - `Ciir.Cli.Tests` — runs the built `ciir` executable as a real subprocess and asserts on exit
-  codes.
+  codes and console output (the splash screen and its opt-outs), plus unit tests for the splash
+  screen itself.
 
-## Installation / running the CLI
+## Installation
+
+### As a .NET tool (recommended)
+
+`ciir` is published on nuget.org as the [`BlogDoFT.Ciir`](https://www.nuget.org/packages/BlogDoFT.Ciir)
+.NET tool (command: `ciir`). It needs the **.NET 10 SDK** (see "Prerequisites" below).
+
+```bash
+dotnet tool install --global BlogDoFT.Ciir      # install
+dotnet tool update --global BlogDoFT.Ciir       # update
+dotnet tool uninstall --global BlogDoFT.Ciir    # remove
+ciir --version
+```
+
+As a repository-local tool (pins the version for everyone working on the repository):
+
+```bash
+dotnet new tool-manifest
+dotnet tool install BlogDoFT.Ciir
+dotnet tool run ciir <path>
+```
+
+Or run it once without installing it, using .NET 10's `dnx`:
+
+```bash
+dnx BlogDoFT.Ciir <path>
+```
+
+### Prerequisites
+
+The same notices are shown by the splash screen at the start of every run:
+
+- **.NET 10 SDK** — the runtime alone is not enough: `ciir` uses the SDK's MSBuild to open solutions
+  and projects. Without an SDK, `ciir` exits with code `4` and analyzes nothing.
+- **Restore the analyzed projects first** (`dotnet restore`). `ciir` does not restore; without
+  `obj/project.assets.json`, NuGet references do not resolve and many relations end up `unresolved`.
+- A `global.json` in the analyzed repository may select a different SDK than the one you expect
+  (analysis of a `net8.0` project pinned to SDK 8 was verified to work).
+
+### Running from source (development)
 
 ```bash
 dotnet run --project src/Ciir.Cli -- <path> [options]
@@ -102,10 +142,17 @@ dotnet build src/Ciir.Cli
 dotnet src/Ciir.Cli/bin/Debug/net10.0/ciir.dll <path> [options]
 ```
 
+To try the packaged tool locally (the same check the release workflow runs):
+
+```bash
+dotnet pack src/Ciir.Cli -c Release -p:Version=0.0.0-local.1 -o artifacts
+scripts/verify-tool-package.sh 0.0.0-local.1
+```
+
 ### Usage
 
 ```bash
-ciir <path> [--output <path>] [--verbose] [--no-progress] [--include-source] [--fail-on-error]
+ciir <path> [--output <path>] [--verbose] [--no-progress] [--no-banner] [--include-source] [--fail-on-error]
 ```
 
 `<path>` may be:
@@ -125,16 +172,47 @@ as above) — see [Configuration and file metadata](docs/ciir-specification.md#c
 | `--output <path>` | Output directory (default: `./ciir-output`). |
 | `--verbose` | Verbose diagnostic logging. |
 | `--no-progress` | Suppress progress reporting. |
+| `--no-banner` | Suppress the splash screen (also suppressed when the `CIIR_NOLOGO` environment variable is `1` or `true`). |
 | `--include-source` | Embed the literal source text of each entity's declaration. |
 | `--fail-on-error` | Exit with a non-zero code if any project fails to load/analyze. |
 
 Exit codes: `0` success, `1` a project failed under `--fail-on-error`, `2` invalid arguments/input,
-`3` writing the output failed.
+`3` writing the output failed, `4` the environment cannot run an analysis (no .NET SDK found).
 
 Example:
 
 ```bash
 ciir ./src --output ./artifacts/ciir --verbose
+```
+
+Every analysis run starts with a splash screen — the tool name and BlogDoFT in ASCII art, a link to
+the blog, and the prerequisite notices — followed by the tool's own output. `--help` and `--version`
+never print it, so their output stays script-friendly:
+
+```text
+  ____  ___  ___  ____
+ / ___||_ _||_ _||  _ \
+| |     | |  | | | |_) |
+| |___  | |  | | |  _ <
+ \____||___||___||_| \_\
+  Code Intelligence IR - v0.2.0
+
+ ____   _                 ____          _____  _____
+| __ ) | |  ___    __ _  |  _ \   ___  |  ___||_   _|
+|  _ \ | | / _ \  / _` | | | | | / _ \ | |_     | |
+| |_) || || (_) || (_| | | |_| || (_) ||  _|    | |
+|____/ |_| \___/  \__, | |____/  \___/ |_|      |_|
+                  |___/
+
+  https://www.blogdoft.com.br/
+
+  Before you start:
+   - Requires the .NET 10 SDK (the runtime alone is not enough).
+   - Analyzed projects must be restored first (dotnet restore); ciir will not.
+   - A global.json in the analyzed repository may select a different SDK.
+
+Discovering projects...
+Found 1 project(s).
 ```
 
 ## Generated files
@@ -229,3 +307,15 @@ embedding generation or any LLM call, a REST API, Kubernetes/queue integration, 
 graph traversal, business-rule extraction, dynamic/runtime instrumentation, a fully serialized
 control-flow graph, and analyzers for Java/JavaScript/Python. The architecture (ports defined in
 `Ciir.Application`) is built so these can be added later as new adapters without changing the core.
+
+## Releasing
+
+Releases are tag-driven (see [`.specs/02-dotnet-tool.md`](.specs/02-dotnet-tool.md)): pushing a
+`vX.Y.Z` tag to Forgejo, then mirroring it to GitHub (the mirror workflow can be run manually),
+triggers `.github/workflows/release.yml` — build, test, pack, verify the package, and, after approval
+on the `nuget` environment, publish to nuget.org. Versions are derived by GitVersion from tags and
+Conventional Commits.
+
+## License
+
+[GPL-3.0-only](LICENSE).

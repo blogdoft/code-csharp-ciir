@@ -1,0 +1,17 @@
+# Package/tool version, derived from tags (vX.Y.Z) and Conventional Commits.
+# See .specs/02-dotnet-tool.md (section 5).
+workflow: GitHubFlow/v1
+tag-prefix: 'v'
+
+# Conventional Commits drive the bump (GitVersion 6 defaults to "+semver:" directives instead).
+commit-message-incrementing: Enabled
+major-version-bump-message: '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([\w\s-,/\\]*\))?(!:|:.*\n\n((.+\n)+\n)?BREAKING CHANGE:\s.+)'
+minor-version-bump-message: '^(feat)(\([\w\s-,/\\]*\))?:'
+patch-version-bump-message: '^(fix|perf)(\([\w\s-,/\\]*\))?:'
+no-bump-message: '\+semver:\s?(none|skip)'
+
+branches:
+  main:
+    # Untagged commits on main are pre-releases (e.g. 0.1.1-ci.4), so a CI build can never
+    # collide with a published version; only a vX.Y.Z tag yields the plain X.Y.Z.
+    label: ci

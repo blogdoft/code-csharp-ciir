@@ -2,7 +2,7 @@ using Ciir.Application.Ports;
 
 namespace Ciir.Cli.Presentation;
 
-/// <summary>Reports analysis progress to the console. The only component allowed to write to <see cref="Console"/>.</summary>
+/// <summary>Reports analysis progress to the console. Console output lives in this presentation layer, alongside <see cref="SplashScreen"/>.</summary>
 internal sealed class ConsoleProgressReporter : IAnalysisProgressReporter
 {
     /// <inheritdoc />
