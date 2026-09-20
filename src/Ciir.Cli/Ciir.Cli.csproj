@@ -6,6 +6,26 @@
     <AssemblyName>ciir</AssemblyName>
   </PropertyGroup>
 
+  <!-- Packaged as the BlogDoFT.Ciir .NET tool (command: ciir). See .specs/02-dotnet-tool.md. -->
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>ciir</ToolCommandName>
+    <PackageId>BlogDoFT.Ciir</PackageId>
+    <IsPackable>true</IsPackable>
+    <RollForward>Major</RollForward>
+    <Description>Static analyzer that turns C# code into CIIR (Code Intelligence Intermediate Representation).</Description>
+    <PackageTags>csharp;roslyn;static-analysis;code-intelligence;ciir;embeddings</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ciir.Cli.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Ciir.Application\Ciir.Application.csproj" />
     <ProjectReference Include="..\Ciir.Configuration\Ciir.Configuration.csproj" />

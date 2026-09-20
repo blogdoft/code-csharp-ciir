@@ -112,7 +112,11 @@ dotnet test
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 
 # Run the CLI against a solution, project, or directory
-dotnet run --project src/Ciir.Cli -- <path> [--output <path>] [--verbose] [--include-source] [--fail-on-error]
+dotnet run --project src/Ciir.Cli -- <path> [--output <path>] [--verbose] [--no-banner] [--include-source] [--fail-on-error]
+
+# Pack the CLI as the BlogDoFT.Ciir .NET tool and verify the package (contents, install, smoke test)
+dotnet pack src/Ciir.Cli -c Release -p:Version=0.0.0-local.1 -o artifacts
+scripts/verify-tool-package.sh 0.0.0-local.1
 ```
 
 Test projects mirror `src/` one-to-one (`Ciir.Core.Tests`, `Ciir.Application.Tests`,
@@ -120,3 +124,20 @@ Test projects mirror `src/` one-to-one (`Ciir.Core.Tests`, `Ciir.Application.Tes
 `fixtures/BasicSolution` and `fixtures/MultipleProjects` are the sample C# projects the
 `Ciir.CSharp.Tests` integration tests analyze — reuse them for new test scenarios (e.g.
 `MultipleProjects` for cross-project relation behavior) rather than adding new fixture projects.
+
+## Distribution (.NET tool)
+
+`Ciir.Cli` is packaged as the `BlogDoFT.Ciir` .NET tool (command `ciir`), published to nuget.org
+under GPL-3.0-only. See [`.specs/02-dotnet-tool.md`](.specs/02-dotnet-tool.md). Key points:
+
+- Only `Ciir.Cli` is packable; the other projects ship as DLLs inside the tool package. The package
+  must never bundle `Microsoft.Build*.dll` (the `MSBuildLocator` uses the installed SDK's MSBuild) —
+  `scripts/verify-tool-package.sh` enforces this.
+- The version comes from GitVersion (tags `vX.Y.Z` + Conventional Commits, see `GitVersion.yml`) and
+  is passed with `-p:Version=`; local builds default to `0.0.0-local`. Never hard-code a version.
+- Releases are tag-driven through `.github/workflows/release.yml` (GitHub only; the Forgejo mirror
+  carries the tag over). Publishing needs approval on the `nuget` environment.
+- Every analysis run prints a splash screen (`Ciir.Cli/Presentation/SplashScreen.cs`): banner, blog
+  link, prerequisite notices, then the tool output. Keep that order; `--help`/`--version` must never
+  print it.
+- `IEnvironmentValidator` fails fast with exit code `4` when no .NET SDK/MSBuild is available.

@@ -5,6 +5,7 @@ using Ciir.Application.Reporting;
 using Ciir.Application.UseCases;
 using Ciir.Cli.Presentation;
 using Ciir.Configuration;
+using Ciir.CSharp.Bootstrap;
 using Ciir.CSharp.Workspace;
 using Ciir.Serialization.Writing;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,7 @@ internal static class ServiceCollectionExtensions
         });
 
         services.AddSingleton<IInputResolver, InputResolver>();
+        services.AddSingleton<IEnvironmentValidator, MsBuildEnvironmentValidator>();
         services.AddSingleton<ISolutionProjectLister, MsBuildSolutionProjectLister>();
         services.AddSingleton<ProjectDiscoveryService>();
         services.AddSingleton<ICodeAnalyzer, CSharpCodeAnalyzer>();

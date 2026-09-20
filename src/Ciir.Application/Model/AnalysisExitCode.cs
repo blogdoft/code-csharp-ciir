@@ -14,4 +14,7 @@ public enum AnalysisExitCode
 
     /// <summary>Writing the output artifacts failed.</summary>
     OutputWriteFailure = 3,
+
+    /// <summary>The environment cannot run an analysis (e.g. no .NET SDK/MSBuild was found).</summary>
+    EnvironmentError = 4,
 }
