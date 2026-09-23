@@ -15,23 +15,20 @@ CIIR document looks like.
 Hexagonal (ports & adapters). The core owns the domain logic ("analyze source → produce CIIR")
 independent of any delivery mechanism or I/O technology:
 
-```
-             ENTRY POINTS
-                  |
-         +--------+--------+
-         |                 |
-        CLI             future API
-         |                 |
-         +--------+--------+
-                  v
-             Application
-                  |
-        +---------+----------+
-        v                    v
-   Analyzer Contract       Writers
-        ^
-        |
-    C# / Roslyn
+```mermaid
+flowchart TD
+    subgraph EntryPoints["Entry points"]
+        CLI["CLI"]
+        API["future API"]
+    end
+
+    CLI --> App["Application"]
+    API --> App
+
+    App --> Analyzer["Analyzer Contract"]
+    App --> Writers["Writers"]
+
+    Roslyn["C# / Roslyn"] -. implements .-> Analyzer
 ```
 
 | Project | Role |
