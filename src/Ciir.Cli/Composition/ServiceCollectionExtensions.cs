@@ -20,7 +20,7 @@ internal static class ServiceCollectionExtensions
     // Bounds a whole upload: a CIIR file can reach hundreds of megabytes.
     private static readonly TimeSpan UploadTimeout = TimeSpan.FromMinutes(10);
 
-    public static IServiceCollection AddCiir(this IServiceCollection services, bool verbose, bool noProgress)
+    public static IServiceCollection AddCiir(this IServiceCollection services, bool verbose, bool noProgress, bool insecure = false)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -38,7 +38,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<ICodeAnalyzer, ConfigurationCodeAnalyzer>();
         services.AddSingleton<ICiirWriterFactory, JsonlCiirWriterFactory>();
         services.AddSingleton<IAnalysisArtifactWriter, AnalysisArtifactWriter>();
-        services.AddSingleton<ICiirUploader>(_ => new HttpCiirUploader(new HttpClient { Timeout = UploadTimeout }));
+        services.AddSingleton<ICiirUploader>(_ => new HttpCiirUploader(IndexerHttpClientFactory.Create(UploadTimeout, insecure)));
         services.AddSingleton<IAnalysisReporter, AnalysisReporter>();
         services.AddSingleton<IAnalysisProgressReporter>(
             noProgress ? NullAnalysisProgressReporter.Instance : new ConsoleProgressReporter());

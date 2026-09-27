@@ -153,7 +153,7 @@ scripts/verify-tool-package.sh 0.0.0-local.1
 
 ```bash
 ciir <path> [--output <path>] [--verbose] [--no-progress] [--no-banner] [--include-source] [--fail-on-error]
-     [--send [<base-url>] --projectId <guid> [--token <jwt> | --clientId <id> --clientSecret <secret>]]
+     [--send [<base-url>] --projectId <guid> [--token <jwt> | --clientId <id> --clientSecret <secret>] [--insecure]]
 ```
 
 `<path>` may be:
@@ -181,6 +181,7 @@ as above) — see [Configuration and file metadata](docs/ciir-specification.md#c
 | `-ci`, `--clientId <id>` | With `--send`: Keycloak client id. Only used together with `--clientSecret`. |
 | `-cs`, `--clientSecret <secret>` | With `--send`: Keycloak client secret. Only used together with `--clientId`. |
 | `-t`, `--token <jwt>` | With `--send`: an access token sent as the Bearer token (wins over `--clientId`/`--clientSecret`). |
+| `--insecure` | With `--send`: do not validate the indexer's TLS/SSL certificate (self-signed, private CA, hostname mismatch). Insecure — prints a warning; use only on trusted networks. |
 
 Exit codes: `0` success, `1` a project failed under `--fail-on-error`, `2` invalid arguments/input,
 `3` writing the output failed, `4` the environment cannot run an analysis (no .NET SDK found),
@@ -214,6 +215,9 @@ CIIR_BASE_URL=http://localhost:5223 ciir ./src -s --projectId 3f2b1c0e-...
   gateway (`POST {base-url}/api/indexer/auth/token`) — it never talks to Keycloak itself (the
   Keycloak client must be confidential with *Service accounts* enabled). With neither, the file is sent without authentication. Giving only one of
   `--clientId`/`--clientSecret` prints a warning and is treated as neither.
+- **TLS**: the indexer's certificate is validated by default. When the runner does not trust it (self-signed
+  or private CA — typically `The SSL connection could not be established`), install the CA on the runner or,
+  as a last resort, pass `--insecure`, which skips certificate validation for the token and upload requests.
 - The upload only happens after a successful analysis; on success `ciir` prints the `uploadId` and
   `status` the indexer returned (it does not wait for the indexer to process the file).
 

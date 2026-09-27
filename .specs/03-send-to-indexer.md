@@ -35,6 +35,7 @@ Sem `--send`, o comportamento do CLI **não muda**.
 | `--clientId <id>` | `-ci` | `client_id` no Keycloak (client credentials) |
 | `--clientSecret <secret>` | `-cs` | Secret do client |
 | `--token <jwt>` | `-t` | Access token usado como Bearer |
+| `--insecure` | — | Não valida o certificado TLS/SSL do indexer (autoassinado, CA privada, hostname divergente). Vale para o pedido de token e para o upload. Imprime um aviso em stderr. Uso restrito a redes confiáveis; sem a opção, o certificado é sempre validado |
 
 > **Decisão registrada:** o pedido original não citava `--projectId`, mas o indexer rejeita o upload
 > sem ele; por isso a opção foi acrescentada (nome em camelCase, igual às opções de conexão pedidas).

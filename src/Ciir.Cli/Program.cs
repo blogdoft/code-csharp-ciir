@@ -32,6 +32,7 @@ var projectIdOption = new Option<string?>("--projectId", "-pi") { Description = 
 var clientIdOption = new Option<string?>("--clientId", "-ci") { Description = "With --send: the Keycloak client id, used with --clientSecret to negotiate a token." };
 var clientSecretOption = new Option<string?>("--clientSecret", "-cs") { Description = "With --send: the Keycloak client secret. Only used together with --clientId." };
 var tokenOption = new Option<string?>("--token", "-t") { Description = "With --send: an access token sent as the Bearer token (takes precedence over --clientId/--clientSecret)." };
+var insecureOption = new Option<bool>("--insecure") { Description = "With --send: do not validate the indexer's TLS/SSL certificate (self-signed, private CA). Insecure: use only on trusted networks." };
 
 var rootCommand = new RootCommand("Statically analyzes C# source code and produces a CIIR (Code Intelligence Intermediate Representation) artifact.")
 {
@@ -47,6 +48,7 @@ var rootCommand = new RootCommand("Statically analyzes C# source code and produc
     clientIdOption,
     clientSecretOption,
     tokenOption,
+    insecureOption,
 };
 
 rootCommand.SetAction(async (parseResult, cancellationToken) =>
@@ -66,7 +68,13 @@ rootCommand.SetAction(async (parseResult, cancellationToken) =>
     var verbose = parseResult.GetValue(verboseOption);
     var noProgress = parseResult.GetValue(noProgressOption);
 
-    var services = new ServiceCollection().AddCiir(verbose, noProgress);
+    var insecure = sendResult is { IsSuccess: true } && parseResult.GetValue(insecureOption);
+    if (insecure)
+    {
+        Console.Error.WriteLine("Warning: --insecure is set; the indexer's TLS/SSL certificate will NOT be validated.");
+    }
+
+    var services = new ServiceCollection().AddCiir(verbose, noProgress, insecure);
     await using var provider = services.BuildServiceProvider();
 
     var command = new AnalyzeInputCommand
