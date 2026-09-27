@@ -106,7 +106,7 @@ accounts enabled* (o indexer só faz o grant `client_credentials`).
 
 ## 5. Fora de escopo (YAGNI)
 
-Polling do status do upload; `POST /ciir-uploads/register` (arquivos enormes via MinIO); cache/refresh
+Polling do status do upload; `POST /ciir-uploads/register` (arquivos enormes via Garage); cache/refresh
 de token; variáveis de ambiente para `clientId`/`clientSecret`/`token`/
 `projectId` (só `CIIR_BASE_URL`, como pedido); criar o projeto no indexer.
 
