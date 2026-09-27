@@ -7,6 +7,7 @@ using Ciir.Cli.Presentation;
 using Ciir.Configuration;
 using Ciir.CSharp.Bootstrap;
 using Ciir.CSharp.Workspace;
+using Ciir.Indexer.Client;
 using Ciir.Serialization.Writing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,9 @@ namespace Ciir.Cli.Composition;
 /// <summary>The composition root: wires the C# analyzer and serialization adapters into the application core.</summary>
 internal static class ServiceCollectionExtensions
 {
+    // Bounds a whole upload: a CIIR file can reach hundreds of megabytes.
+    private static readonly TimeSpan UploadTimeout = TimeSpan.FromMinutes(10);
+
     public static IServiceCollection AddCiir(this IServiceCollection services, bool verbose, bool noProgress)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -34,6 +38,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<ICodeAnalyzer, ConfigurationCodeAnalyzer>();
         services.AddSingleton<ICiirWriterFactory, JsonlCiirWriterFactory>();
         services.AddSingleton<IAnalysisArtifactWriter, AnalysisArtifactWriter>();
+        services.AddSingleton<ICiirUploader>(_ => new HttpCiirUploader(new HttpClient { Timeout = UploadTimeout }));
         services.AddSingleton<IAnalysisReporter, AnalysisReporter>();
         services.AddSingleton<IAnalysisProgressReporter>(
             noProgress ? NullAnalysisProgressReporter.Instance : new ConsoleProgressReporter());

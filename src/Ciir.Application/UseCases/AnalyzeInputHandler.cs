@@ -7,8 +7,9 @@ namespace Ciir.Application.UseCases;
 
 /// <summary>
 /// The main analysis use case: resolve input, discover projects, analyze each one while
-/// streaming CIIR output, then write the manifest and report. Invokable programmatically with no
-/// dependency on any specific delivery mechanism (CLI, HTTP, ...).
+/// streaming CIIR output, then write the manifest and report and, when requested, send the result
+/// to the code-ciir-indexer. Invokable programmatically with no dependency on any specific
+/// delivery mechanism (CLI, HTTP, ...).
 /// </summary>
 public sealed class AnalyzeInputHandler(
     IInputResolver inputResolver,
@@ -17,6 +18,7 @@ public sealed class AnalyzeInputHandler(
     IEnumerable<ICodeAnalyzer> codeAnalyzers,
     ICiirWriterFactory writerFactory,
     IAnalysisArtifactWriter artifactWriter,
+    ICiirUploader uploader,
     IAnalysisReporter reporter,
     IAnalysisProgressReporter progress)
 {
@@ -82,8 +84,7 @@ public sealed class AnalyzeInputHandler(
             return new AnalysisResult { ExitCode = AnalysisExitCode.OutputWriteFailure, ErrorMessage = ex.Message, Report = report };
         }
 
-        var exitCode = hasFatalProjectFailure && command.Options.FailOnError ? AnalysisExitCode.Failure : AnalysisExitCode.Success;
-        return new AnalysisResult { ExitCode = exitCode, Report = report };
+        return await FinishAsync(command.Options, report, hasFatalProjectFailure, cancellationToken);
     }
 
     private static AnalysisManifest BuildManifest(
@@ -203,5 +204,27 @@ public sealed class AnalyzeInputHandler(
 
         var manifest = BuildManifest(command, inputType, projectPaths, report);
         await artifactWriter.WriteManifestAsync(manifest, command.Options.OutputPath, cancellationToken);
+    }
+
+    private async Task<AnalysisResult> FinishAsync(
+        AnalysisOptions options,
+        AnalysisReport report,
+        bool hasFatalProjectFailure,
+        CancellationToken cancellationToken)
+    {
+        if (hasFatalProjectFailure && options.FailOnError)
+        {
+            return new AnalysisResult { ExitCode = AnalysisExitCode.Failure, Report = report };
+        }
+
+        if (options.Send is not { } sendOptions)
+        {
+            return new AnalysisResult { ExitCode = AnalysisExitCode.Success, Report = report };
+        }
+
+        var uploadResult = await uploader.UploadAsync(Path.Combine(options.OutputPath, "ciir.jsonl"), sendOptions, cancellationToken);
+        return uploadResult.IsFailure
+            ? new AnalysisResult { ExitCode = AnalysisExitCode.UploadFailure, ErrorMessage = uploadResult.Failure.Message, Report = report }
+            : new AnalysisResult { ExitCode = AnalysisExitCode.Success, Report = report, Upload = uploadResult.Value };
     }
 }

@@ -29,6 +29,7 @@ Roslyn.
 | `src/Ciir.Core` | The CIIR model itself (records, enums, identity hashing, `embeddingText` generation). No dependency on Roslyn, the CLI, or any serialization technology. |
 | `src/Ciir.Application` | Ports (`ICodeAnalyzer`, `ICiirWriter`, `IInputResolver`, ...) and the main use case (`AnalyzeInputHandler`). Depends only on `Ciir.Core`. |
 | `src/Ciir.CSharp` | The only project allowed to depend on `Microsoft.CodeAnalysis*`. Implements `ICodeAnalyzer` using Roslyn (syntax trees + semantic model + `MSBuildWorkspace`). |
+| `src/Ciir.Indexer.Client` | Driven adapter implementing `ICiirUploader`: HTTP upload of `ciir.jsonl` to the code-ciir-indexer (`--send`, see `.specs/03-send-to-indexer.md`). No dependency on Roslyn. |
 | `src/Ciir.Serialization` | JSONL writer, `manifest.json`/`analysis-report.json` writer, and the embedded `ciir.schema.json`. No dependency on Roslyn. |
 | `src/Ciir.Cli` | The composition root and command-line adapter (`Ciir.Cli/Composition/ServiceCollectionExtensions.cs`). Contains no analysis logic — parses arguments, wires DI, calls into `Ciir.Application`. |
 
@@ -112,7 +113,7 @@ dotnet test
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 
 # Run the CLI against a solution, project, or directory
-dotnet run --project src/Ciir.Cli -- <path> [--output <path>] [--verbose] [--no-banner] [--include-source] [--fail-on-error]
+dotnet run --project src/Ciir.Cli -- <path> [--output <path>] [--verbose] [--no-banner] [--include-source] [--fail-on-error] [--send [<base-url>] --projectId <guid> ...]
 
 # Pack the CLI as the BlogDoFT.Ciir .NET tool and verify the package (contents, install, smoke test)
 dotnet pack src/Ciir.Cli -c Release -p:Version=0.0.0-local.1 -o artifacts
@@ -120,7 +121,7 @@ scripts/verify-tool-package.sh 0.0.0-local.1
 ```
 
 Test projects mirror `src/` one-to-one (`Ciir.Core.Tests`, `Ciir.Application.Tests`,
-`Ciir.CSharp.Tests`, `Ciir.Serialization.Tests`, `Ciir.Cli.Tests`) under `tests/`.
+`Ciir.CSharp.Tests`, `Ciir.Indexer.Client.Tests`, `Ciir.Serialization.Tests`, `Ciir.Cli.Tests`) under `tests/`.
 `fixtures/BasicSolution` and `fixtures/MultipleProjects` are the sample C# projects the
 `Ciir.CSharp.Tests` integration tests analyze — reuse them for new test scenarios (e.g.
 `MultipleProjects` for cross-project relation behavior) rather than adding new fixture projects.

@@ -17,4 +17,7 @@ public enum AnalysisExitCode
 
     /// <summary>The environment cannot run an analysis (e.g. no .NET SDK/MSBuild was found).</summary>
     EnvironmentError = 4,
+
+    /// <summary>The analysis succeeded but sending <c>ciir.jsonl</c> to the code-ciir-indexer failed.</summary>
+    UploadFailure = 5,
 }

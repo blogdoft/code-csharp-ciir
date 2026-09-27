@@ -19,6 +19,7 @@ internal static class CliRunner
 
         // A developer/CI shell may already export CIIR_NOLOGO; tests must control it explicitly.
         startInfo.Environment.Remove("CIIR_NOLOGO");
+        startInfo.Environment.Remove("CIIR_BASE_URL");
         foreach (var (name, value) in environment ?? new Dictionary<string, string>())
         {
             startInfo.Environment[name] = value;

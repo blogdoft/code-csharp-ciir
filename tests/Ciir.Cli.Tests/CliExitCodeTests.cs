@@ -46,6 +46,38 @@ public class CliExitCodeTests
         }
     }
 
+    [Fact]
+    public async Task Run_ReturnsInvalidInput_BeforeAnalyzing_WhenSendHasNoBaseUrlAndNoEnvironmentVariable()
+    {
+        var outputDirectory = CreateTempOutputDirectory();
+
+        var result = await CliRunner.RunAsync([Path.GetTempPath(), "--output", outputDirectory, "--send", "--projectId", Guid.NewGuid().ToString()]);
+
+        result.ExitCode.ShouldBe(2);
+        result.StandardError.ShouldContain("CIIR_BASE_URL");
+        Directory.Exists(outputDirectory).ShouldBeFalse("validation must fail before the analysis starts");
+    }
+
+    [Fact]
+    public async Task Run_ReturnsInvalidInput_WhenTheBaseUrlComesFromAnInvalidEnvironmentVariable()
+    {
+        var result = await CliRunner.RunAsync(
+            [Path.GetTempPath(), "-s", "--projectId", Guid.NewGuid().ToString()],
+            new Dictionary<string, string> { ["CIIR_BASE_URL"] = "not a url" });
+
+        result.ExitCode.ShouldBe(2);
+        result.StandardError.ShouldContain("not a url");
+    }
+
+    [Fact]
+    public async Task Run_ReturnsInvalidInput_WhenSendHasNoProjectId()
+    {
+        var result = await CliRunner.RunAsync([Path.GetTempPath(), "--send", "https://indexer.example"]);
+
+        result.ExitCode.ShouldBe(2);
+        result.StandardError.ShouldContain("--projectId");
+    }
+
     private static string CreateTempOutputDirectory() =>
         Path.Combine(Path.GetTempPath(), "ciir-cli-tests-" + Guid.NewGuid());
 }

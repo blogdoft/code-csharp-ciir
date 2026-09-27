@@ -11,4 +11,7 @@ public sealed record AnalysisResult
 
     /// <summary>The operational report, populated once the pipeline has run (even partially).</summary>
     public AnalysisReport? Report { get; init; }
+
+    /// <summary>The indexer's receipt, populated when the file was sent to the code-ciir-indexer.</summary>
+    public CiirUploadReceipt? Upload { get; init; }
 }

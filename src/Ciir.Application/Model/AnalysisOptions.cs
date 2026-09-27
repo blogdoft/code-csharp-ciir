@@ -17,4 +17,7 @@ public sealed record AnalysisOptions
 
     /// <summary>Whether to suppress progress reporting.</summary>
     public bool NoProgress { get; init; }
+
+    /// <summary>When set, the generated <c>ciir.jsonl</c> is sent to the code-ciir-indexer after a successful analysis.</summary>
+    public SendOptions? Send { get; init; }
 }

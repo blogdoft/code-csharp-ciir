@@ -29,6 +29,12 @@ public class ArchitectureBoundaryTests
         AssertNoRoslynReference(typeof(Configuration.ConfigurationCodeAnalyzer).Assembly);
     }
 
+    [Fact]
+    public void CiirIndexerClient_DoesNotReferenceRoslyn()
+    {
+        AssertNoRoslynReference(typeof(Indexer.Client.HttpCiirUploader).Assembly);
+    }
+
     private static void AssertNoRoslynReference(Assembly assembly)
     {
         var referencedRoslynAssemblies = assembly.GetReferencedAssemblies()

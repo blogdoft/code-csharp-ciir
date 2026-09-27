@@ -19,6 +19,7 @@ public class AnalyzeInputHandlerTests : IDisposable
     private readonly ICiirWriterFactory writerFactory = Substitute.For<ICiirWriterFactory>();
     private readonly ICiirWriter writer = Substitute.For<ICiirWriter>();
     private readonly IAnalysisArtifactWriter artifactWriter = Substitute.For<IAnalysisArtifactWriter>();
+    private readonly ICiirUploader uploader = Substitute.For<ICiirUploader>();
     private readonly IAnalysisReporter reporter = Substitute.For<IAnalysisReporter>();
     private readonly IAnalysisProgressReporter progress = Substitute.For<IAnalysisProgressReporter>();
 
@@ -53,6 +54,7 @@ public class AnalyzeInputHandlerTests : IDisposable
             [codeAnalyzer],
             writerFactory,
             artifactWriter,
+            uploader,
             reporter,
             progress);
     }
@@ -151,6 +153,78 @@ public class AnalyzeInputHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_DoesNotSend_WhenSendIsNotRequested()
+    {
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
+
+        var result = await handler.ExecuteAsync(Command(), TestContext.Current.CancellationToken);
+
+        result.ExitCode.ShouldBe(AnalysisExitCode.Success);
+        result.Upload.ShouldBeNull();
+        await uploader.DidNotReceiveWithAnyArgs().UploadAsync(default!, default!, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SendsTheGeneratedJsonl_AfterWritingArtifacts_WhenSendIsRequested()
+    {
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
+        var receipt = new CiirUploadReceipt(Guid.NewGuid(), "pending");
+        uploader.UploadAsync(Arg.Any<string>(), Arg.Any<SendOptions>(), Arg.Any<CancellationToken>()).Returns(Result<CiirUploadReceipt>.FromSuccess(receipt));
+        var send = SendOptionsForTest();
+
+        var result = await handler.ExecuteAsync(Command(send: send), TestContext.Current.CancellationToken);
+
+        result.ExitCode.ShouldBe(AnalysisExitCode.Success);
+        result.Upload.ShouldBe(receipt);
+        await artifactWriter.Received(1).WriteManifestAsync(Arg.Any<AnalysisManifest>(), outputPath, Arg.Any<CancellationToken>());
+        await uploader.Received(1).UploadAsync(Path.Combine(outputPath, "ciir.jsonl"), send, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ReturnsUploadFailure_WhenSendingFails()
+    {
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
+        uploader.UploadAsync(Arg.Any<string>(), Arg.Any<SendOptions>(), Arg.Any<CancellationToken>())
+            .Returns(Result<CiirUploadReceipt>.FromFailure(new Failure("upload_rejected", "HTTP 401")));
+
+        var result = await handler.ExecuteAsync(Command(send: SendOptionsForTest()), TestContext.Current.CancellationToken);
+
+        result.ExitCode.ShouldBe(AnalysisExitCode.UploadFailure);
+        result.ErrorMessage.ShouldBe("HTTP 401");
+        result.Upload.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_DoesNotSend_WhenFailOnErrorIsViolated()
+    {
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => throw new InvalidOperationException("boom"));
+
+        var result = await handler.ExecuteAsync(Command(failOnError: true, send: SendOptionsForTest()), TestContext.Current.CancellationToken);
+
+        result.ExitCode.ShouldBe(AnalysisExitCode.Failure);
+        await uploader.DidNotReceiveWithAnyArgs().UploadAsync(default!, default!, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_DoesNotSend_WhenWritingArtifactsFails()
+    {
+        inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
+        codeAnalyzer.AnalyzeAsync(projectPath, Arg.Any<string>(), Arg.Any<AnalysisOptions>(), Arg.Any<CancellationToken>()).Returns(ToAsyncEnumerable([]));
+        artifactWriter.WriteManifestAsync(Arg.Any<AnalysisManifest>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => throw new IOException("disk full"));
+
+        var result = await handler.ExecuteAsync(Command(send: SendOptionsForTest()), TestContext.Current.CancellationToken);
+
+        result.ExitCode.ShouldBe(AnalysisExitCode.OutputWriteFailure);
+        await uploader.DidNotReceiveWithAnyArgs().UploadAsync(default!, default!, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WritesReportManifestAndSchema_AfterAnalysis()
     {
         inputResolver.Resolve(Arg.Any<string>()).Returns(Result<AnalysisInput>.FromSuccess(new AnalysisInput { Type = AnalysisInputType.Project, Path = projectPath }));
@@ -234,6 +308,7 @@ public class AnalyzeInputHandlerTests : IDisposable
             [codeAnalyzer, yamlAnalyzer],
             writerFactory,
             artifactWriter,
+            uploader,
             reporter,
             progress);
 
@@ -303,9 +378,15 @@ public class AnalyzeInputHandlerTests : IDisposable
         await Task.CompletedTask;
     }
 
-    private AnalyzeInputCommand Command(bool failOnError = false) => new()
+    private static SendOptions SendOptionsForTest() => new()
+    {
+        BaseUrl = new Uri("https://indexer.example/"),
+        ProjectId = Guid.NewGuid(),
+    };
+
+    private AnalyzeInputCommand Command(bool failOnError = false, SendOptions? send = null) => new()
     {
         Path = projectPath,
-        Options = new AnalysisOptions { OutputPath = outputPath, FailOnError = failOnError },
+        Options = new AnalysisOptions { OutputPath = outputPath, FailOnError = failOnError, Send = send },
     };
 }

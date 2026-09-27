@@ -5,6 +5,7 @@
     <Project Path="src/Ciir.Configuration/Ciir.Configuration.csproj" />
     <Project Path="src/Ciir.Core/Ciir.Core.csproj" />
     <Project Path="src/Ciir.CSharp/Ciir.CSharp.csproj" />
+    <Project Path="src/Ciir.Indexer.Client/Ciir.Indexer.Client.csproj" />
     <Project Path="src/Ciir.Serialization/Ciir.Serialization.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -13,6 +14,7 @@
     <Project Path="tests/Ciir.Configuration.Tests/Ciir.Configuration.Tests.csproj" />
     <Project Path="tests/Ciir.Core.Tests/Ciir.Core.Tests.csproj" />
     <Project Path="tests/Ciir.CSharp.Tests/Ciir.CSharp.Tests.csproj" />
+    <Project Path="tests/Ciir.Indexer.Client.Tests/Ciir.Indexer.Client.Tests.csproj" />
     <Project Path="tests/Ciir.Serialization.Tests/Ciir.Serialization.Tests.csproj" />
   </Folder>
 </Solution>
