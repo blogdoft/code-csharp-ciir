@@ -9,6 +9,13 @@
 #   MIRROR_GITHUB_TOKEN - a GitHub Personal Access Token (classic, "repo" scope, or
 #   fine-grained with "Contents: read and write") for an account with push access to
 #   https://github.com/blogdoft/code-csharp-ciir.
+#
+# The `ciir` job also analyzes this repository with its own published tool (BlogDoFT.Ciir -
+# dogfooding), the same way code-ciir-indexer does. It runs on pushes only (not on the cron or
+# manual runs) and, on a v* tag push, also sends the resulting ciir.jsonl to the code-ciir-indexer.
+# It is not subject to the mirroring window. Needs the repo/org variables CIIR_BASE_URL,
+# CIIR_PROJECT_ID (this repository's own project id in the indexer) and CIIR_CLIENT_ID, and the
+# repo secret CIIR_CLIENT_SECRET (a confidential Keycloak client with Service accounts enabled).
 name: Mirror to GitHub
 
 on:
@@ -87,3 +94,40 @@ jobs:
             echo "::warning::push to GitHub mirror failed (attempt $attempt/2) - retrying in case this is a transient failure"
           done
           exit 1
+
+  # Runs in parallel with `mirror`. On a tag push the analysis is also sent to the indexer; on a
+  # plain main push it only analyzes, so nothing but a release writes to the deployed indexer.
+  ciir:
+    if: github.event_name == 'push'
+    runs-on: self-hosted
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:10.0
+    steps:
+      # actions/checkout is a Node action; the dotnet SDK image doesn't ship Node, and the
+      # Forgejo runner doesn't inject one into custom job containers.
+      - name: Install Node.js
+        run: apt-get update && apt-get install -y --no-install-recommends nodejs
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install BlogDoFT.Ciir
+        run: |
+          dotnet tool install --global BlogDoFT.Ciir
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      # ciir does not restore; without obj/project.assets.json NuGet references stay unresolved.
+      - name: Restore
+        run: dotnet restore Ciir.slnx
+
+      - name: Run BlogDoFT.Ciir
+        env:
+          CIIR_BASE_URL: ${{ vars.CIIR_BASE_URL }}
+          CIIR_PROJECT_ID: ${{ vars.CIIR_PROJECT_ID }}
+          CIIR_CLIENT_ID: ${{ vars.CIIR_CLIENT_ID }}
+          CIIR_CLIENT_SECRET: ${{ secrets.CIIR_CLIENT_SECRET }}
+        run: |
+          args=(Ciir.slnx --output ciir-output --fail-on-error)
+          args+=(--send "$CIIR_BASE_URL" --projectId "$CIIR_PROJECT_ID" --clientId "$CIIR_CLIENT_ID" --clientSecret "$CIIR_CLIENT_SECRET" --insecure)
+
+          ciir "${args[@]}"
